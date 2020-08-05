@@ -41,7 +41,12 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("ratelimit", req.NamespacedName)
 
-	// your logic here
+	// read request
+	// if delete, delete envoyfilter, config (and apply CRC to ratelimit server deploy)
+
+	// if not delete
+	// read CR's values
+	// update envoyfilter, config (and apply CRC to ratelimit server deploy)
 
 	return ctrl.Result{}, nil
 }

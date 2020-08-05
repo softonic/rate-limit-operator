@@ -1,0 +1,7 @@
+apiVersion: networking.softonic.io/v1alpha1
+kind: RateLimit
+metadata:
+  name: ratelimit-sample
+spec:
+  # Add fields here
+  foo: bar

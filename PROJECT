@@ -1,0 +1,7 @@
+domain: softonic.io
+repo: github.com/softonic/rate-limit-operator
+resources:
+- group: networking
+  kind: RateLimit
+  version: v1alpha1
+version: "2"

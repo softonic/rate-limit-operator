@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,7 +30,7 @@ type RateLimitSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of RateLimit. Edit RateLimit_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	RateLimitConfig v1.ConfigMap `json:"ratelimitconfig"`
 }
 
 // RateLimitStatus defines the observed state of RateLimit

@@ -35,8 +35,7 @@ spec:
           description: RateLimitSpec defines the desired state of RateLimit
           properties:
             ratelimitconfig:
-              description: Foo is an example field of RateLimit. Edit RateLimit_types.go
-                to remove/update Foo       string `json:"foo,omitempty"`
+              description: ConfigMap holds configuration data for pods to consume.
               properties:
                 apiVersion:
                   description: 'APIVersion defines the versioned schema of this representation
@@ -79,6 +78,9 @@ spec:
           type: object
         status:
           description: RateLimitStatus defines the observed state of RateLimit
+          properties:
+            phase:
+              type: string
           type: object
       type: object
   version: v1alpha1

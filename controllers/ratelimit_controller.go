@@ -19,8 +19,13 @@ package controllers
 import (
 	"context"
 
+	"log"
+
 	"github.com/go-logr/logr"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,15 +41,33 @@ type RateLimitReconciler struct {
 
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.istio.io,resources=envoyfilters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=envoyfilters/status,verbs=get
 
 func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("ratelimit", req.NamespacedName)
 
+	rateLimit := &networkingv1alpha1.RateLimit{}
+
+	err := r.Get(context.TODO(), req.NamespacedName, rateLimit)
+
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	configdomainmap := v1.ConfigMap{}
+
+	// match name of DomainConfig with configmap of operator namespace
+	// we need the operators namespace and the Ratelimit CR namespace
+
+	err = r.Get(context.TODO(), types.NamespacedName{Namespace: rateLimit.Namespace, Name: rateLimit.Spec.DomainConfig}, &configdomainmap)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// read request
 	// if delete, delete envoyfilter, config (and apply CRC to ratelimit server deploy)
-
-	
 
 	// if not delete
 	// read CR's values

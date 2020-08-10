@@ -29,14 +29,16 @@ type RateLimitSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of RateLimit. Edit RateLimit_types.go to remove/update
 	RateLimitConfig v1.ConfigMap `json:"ratelimitconfig"`
+	DomainConfig    string       `json:"domainconfig"`
 }
 
 // RateLimitStatus defines the observed state of RateLimit
 type RateLimitStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	Phase string `json:"phase,omitempty"`
 }
 
 // +kubebuilder:object:root=true

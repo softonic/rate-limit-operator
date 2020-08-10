@@ -3,7 +3,15 @@ kind: RateLimit
 metadata:
   name: ratelimit-sample
 spec:
-  # Add fields here
-  ratelimitconfig:
-    Data:
-      field: test
+  targetRef:
+    apiVersion: "networking.istio.io/v1alpha3"
+    kind:       VirtualService
+    name:       noodle-vs
+    namespace:  noodle-v1
+  destinationCluster: "outbound|80||chicken-head-nginx.chicken-head.svc.cluster.local"
+  unit: minute/seconds/hour
+  requestPerUnit: 100
+  dimensions:
+  - request_header:
+      descriptor_key: remote_address
+      header_name: x-custom-ip

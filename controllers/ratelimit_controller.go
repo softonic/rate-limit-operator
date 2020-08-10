@@ -19,14 +19,10 @@ package controllers
 import (
 	"context"
 
-	_ "log"
-	"reflect"
-
 	"github.com/go-logr/logr"
-	"k8s.io/api/core/v1"
 	_ "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	_ "log"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -56,32 +52,32 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	controllerNamespace := "rate-limit-controller"
+	/*	controllerNamespace := "rate-limit-controller"
 
-	configmapDesired, err := r.desiredConfigDomainMap(rateLimitCR, controllerNamespace)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	found := v1.ConfigMap{}
-
-	err = r.Get(context.TODO(), types.NamespacedName{Namespace: controllerNamespace, Name: rateLimitCR.Spec.NameDomainConfig}, &found)
-	if err != nil {
-		err = r.Create(context.TODO(), &configmapDesired)
-		if err != nil {
-			return ctrl.Result{}, client.IgnoreNotFound(err)
-		} else if err != nil {
-			return ctrl.Result{}, err
-		}
-	} else if !reflect.DeepEqual(configmapDesired, found) {
-		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
-		err = r.Patch(context.TODO(), &configmapDesired, client.Apply, applyOpts...)
+		configmapDesired, err := r.desiredConfigDomainMap(rateLimitCR, controllerNamespace)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, nil
-	}
 
+		found := v1.ConfigMap{}
+
+		err = r.Get(context.TODO(), types.NamespacedName{Namespace: controllerNamespace, Name: rateLimitCR.Spec.NameDomainConfig}, &found)
+		if err != nil {
+			err = r.Create(context.TODO(), &configmapDesired)
+			if err != nil {
+				return ctrl.Result{}, client.IgnoreNotFound(err)
+			} else if err != nil {
+				return ctrl.Result{}, err
+			}
+		} else if !reflect.DeepEqual(configmapDesired, found) {
+			applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
+			err = r.Patch(context.TODO(), &configmapDesired, client.Apply, applyOpts...)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
+	*/
 	// if err := controllerutil.SetControllerReference(rateLimitCR, configmap, r.scheme); err != nil {
 	// 	return reconcile.Result{}, err
 	//   }

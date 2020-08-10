@@ -29,8 +29,8 @@ type RateLimitSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	RateLimitConfig v1.ConfigMap `json:"ratelimitconfig"`
-	DomainConfig    string       `json:"domainconfig"`
+	RateLimitConfig  v1.ConfigMap `json:"ratelimitconfig"`
+	NameDomainConfig string       `json:"namedomainconfig"`
 }
 
 // RateLimitStatus defines the observed state of RateLimit

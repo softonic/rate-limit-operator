@@ -19,11 +19,12 @@ package controllers
 import (
 	"context"
 
-	"log"
+	_ "log"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	_ "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,23 +49,42 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("ratelimit", req.NamespacedName)
 
-	rateLimit := &networkingv1alpha1.RateLimit{}
+	rateLimitCR := &networkingv1alpha1.RateLimit{}
 
-	err := r.Get(context.TODO(), req.NamespacedName, rateLimit)
-
+	err := r.Get(context.TODO(), req.NamespacedName, rateLimitCR)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	configdomainmap := v1.ConfigMap{}
+	controllerNamespace := "rate-limit-controller"
 
-	// match name of DomainConfig with configmap of operator namespace
-	// we need the operators namespace and the Ratelimit CR namespace
-
-	err = r.Get(context.TODO(), types.NamespacedName{Namespace: rateLimit.Namespace, Name: rateLimit.Spec.DomainConfig}, &configdomainmap)
+	configmapDesired, err := r.desiredConfigDomainMap(rateLimitCR, controllerNamespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	found := v1.ConfigMap{}
+
+	err = r.Get(context.TODO(), types.NamespacedName{Namespace: controllerNamespace, Name: rateLimitCR.Spec.NameDomainConfig}, &found)
+	if err != nil {
+		err = r.Create(context.TODO(), &configmapDesired)
+		if err != nil {
+			return ctrl.Result{}, client.IgnoreNotFound(err)
+		} else if err != nil {
+			return ctrl.Result{}, err
+		}
+	} else if !reflect.DeepEqual(configmapDesired, found) {
+		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
+		err = r.Patch(context.TODO(), &configmapDesired, client.Apply, applyOpts...)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// if err := controllerutil.SetControllerReference(rateLimitCR, configmap, r.scheme); err != nil {
+	// 	return reconcile.Result{}, err
+	//   }
 
 	// read request
 	// if delete, delete envoyfilter, config (and apply CRC to ratelimit server deploy)
@@ -74,6 +94,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// update envoyfilter, config (and apply CRC to ratelimit server deploy)
 
 	return ctrl.Result{}, nil
+
 }
 
 func (r *RateLimitReconciler) SetupWithManager(mgr ctrl.Manager) error {

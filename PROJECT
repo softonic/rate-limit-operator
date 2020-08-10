@@ -4,4 +4,7 @@ resources:
 - group: networking
   kind: RateLimit
   version: v1alpha1
+- group: networking
+  kind: VirtualService
+  version: v1alpha1
 version: "2"

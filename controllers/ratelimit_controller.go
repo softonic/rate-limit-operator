@@ -18,15 +18,16 @@ package controllers
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/go-logr/logr"
+
+	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	_ "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "log"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 )
 
 // RateLimitReconciler reconciles a RateLimit object
@@ -45,12 +46,33 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("ratelimit", req.NamespacedName)
 
-	rateLimitCR := &networkingv1alpha1.RateLimit{}
+	rateLimitInstance := &networkingv1alpha1.RateLimit{}
 
-	err := r.Get(context.TODO(), req.NamespacedName, rateLimitCR)
+	err := r.Get(context.TODO(), req.NamespacedName, rateLimitInstance)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	virtualService := &networkingv1alpha1.VirtualService{}
+	err = r.Get(context.TODO(), types.NamespacedName{
+		Namespace: rateLimitInstance.Spec.TargetRef.Namespace,
+		Name:      rateLimitInstance.Spec.TargetRef.Name,
+	}, virtualService)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// envoyFilter := istio.EnvoyFilter{}
+
+	// ensure rate limit envoy cluster (envoyfilter is created): deploy through manifest or control it by controller?
+
+	// istio namespace: Force application to be in the same namespace as istio? Pass istio root namespace as parameter?
+	// Fill envoy filter and create/update it
+
+	// Generate rate limit server configmap
+	// create and update it
+
+	// patch server to restart if changes (CRC of above configs?)
 
 	/*	controllerNamespace := "rate-limit-controller"
 

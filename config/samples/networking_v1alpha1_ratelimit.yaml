@@ -9,7 +9,7 @@ spec:
     name:       noodle-vs
     namespace:  noodle-v1
   destinationCluster: "outbound|80||chicken-head-nginx.chicken-head.svc.cluster.local"
-  unit: minute/seconds/hour
+  unit: seconds
   requestPerUnit: 100
   dimensions:
   - request_header:

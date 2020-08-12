@@ -1,0 +1,8 @@
+apiVersion: networking.softonic.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: varnish-noodle-vs
+  namespace: ratelimitoperatortest
+spec:
+  Hosts:
+  - '*:80'

@@ -6,8 +6,8 @@ spec:
   targetRef:
     apiVersion: "networking.istio.io/v1alpha3"
     kind:       VirtualService
-    name:       noodle-vs
-    namespace:  noodle-v1
+    name:       varnish-noodle-vs
+    namespace:  ratelimitoperatortest
   destinationCluster: "outbound|80||chicken-head-nginx.chicken-head.svc.cluster.local"
   unit: seconds
   requestPerUnit: 100

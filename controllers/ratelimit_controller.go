@@ -18,16 +18,22 @@ package controllers
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/go-logr/logr"
+	"fmt"
+
+	"reflect"
 
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
+	_ "istio.io/api/networking/v1alpha3"
+	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "log"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // RateLimitReconciler reconciles a RateLimit object
@@ -38,9 +44,15 @@ type RateLimitReconciler struct {
 }
 
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits,verbs=get;list;watch;create;update;patch;delete
+
+// +kubebuilder:rbac:groups=networking.softonic.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.istio.io,resources=envoyfilters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=envoyfilters/status,verbs=get
+
+// +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
 func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
@@ -53,16 +65,21 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
+	// this hack is not working, meanwhile I am using a real
+	// VirtualService.networking.softonic.io deployed in the same
+	// namespace ( config/samples/networking_v1alpha1_virtualservice.yaml )
+
 	virtualService := &networkingv1alpha1.VirtualService{}
 	err = r.Get(context.TODO(), types.NamespacedName{
 		Namespace: rateLimitInstance.Spec.TargetRef.Namespace,
 		Name:      rateLimitInstance.Spec.TargetRef.Name,
 	}, virtualService)
 	if err != nil {
+		fmt.Println("virtualservice not found")
 		return ctrl.Result{}, err
 	}
 
-	// envoyFilter := istio.EnvoyFilter{}
+	//envoyFilter := istio.EnvoyFilter{}
 
 	// ensure rate limit envoy cluster (envoyfilter is created): deploy through manifest or control it by controller?
 
@@ -72,37 +89,41 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// Generate rate limit server configmap
 	// create and update it
 
-	// patch server to restart if changes (CRC of above configs?)
+	controllerNamespace := "istio-system"
 
-	/*	controllerNamespace := "rate-limit-controller"
+	configmapDesired, err := r.desiredConfigMap(rateLimitInstance, controllerNamespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
-		configmapDesired, err := r.desiredConfigDomainMap(rateLimitCR, controllerNamespace)
+	fmt.Println("we have a configmap to apply", configmapDesired)
+
+	found := v1.ConfigMap{}
+
+	err = r.Get(context.TODO(), types.NamespacedName{Namespace: controllerNamespace, Name: "test"}, &found)
+	if err != nil {
+		fmt.Println("could not find the configmap")
+
+		err = r.Create(context.TODO(), &configmapDesired)
+		if err != nil {
+			fmt.Println("could not create the configmap")
+			return ctrl.Result{}, client.IgnoreNotFound(err)
+		} else if err != nil {
+			return ctrl.Result{}, err
+		}
+	} else if !reflect.DeepEqual(configmapDesired, found) {
+		fmt.Println("ConfigMap exists but there are not the same")
+
+		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
+
+		err = r.Patch(context.TODO(), &configmapDesired, client.Apply, applyOpts...)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		return ctrl.Result{}, nil
+	}
 
-		found := v1.ConfigMap{}
-
-		err = r.Get(context.TODO(), types.NamespacedName{Namespace: controllerNamespace, Name: rateLimitCR.Spec.NameDomainConfig}, &found)
-		if err != nil {
-			err = r.Create(context.TODO(), &configmapDesired)
-			if err != nil {
-				return ctrl.Result{}, client.IgnoreNotFound(err)
-			} else if err != nil {
-				return ctrl.Result{}, err
-			}
-		} else if !reflect.DeepEqual(configmapDesired, found) {
-			applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
-			err = r.Patch(context.TODO(), &configmapDesired, client.Apply, applyOpts...)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{}, nil
-		}
-	*/
-	// if err := controllerutil.SetControllerReference(rateLimitCR, configmap, r.scheme); err != nil {
-	// 	return reconcile.Result{}, err
-	//   }
+	// patch server to restart if changes (CRC of above configs?)
 
 	// read request
 	// if delete, delete envoyfilter, config (and apply CRC to ratelimit server deploy)

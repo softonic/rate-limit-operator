@@ -1,0 +1,17 @@
+apiVersion: networking.softonic.io/v1alpha1
+kind: RateLimit
+metadata:
+  name: ratelimit-sample
+spec:
+  targetRef:
+    apiVersion: "networking.istio.io/v1alpha3"
+    kind:       VirtualService
+    name:       varnish-noodle-vs
+    namespace:  ratelimitoperatortest
+  destinationCluster: "outbound|80||chicken-head-nginx.chicken-head.svc.cluster.local"
+  unit: seconds
+  requestPerUnit: 100
+  dimensions:
+  - request_headers:
+      header_name: "Authorization"
+      descriptor_key: "auth"

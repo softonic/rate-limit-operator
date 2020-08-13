@@ -26,8 +26,8 @@ type DescriptorsParent struct {
 }
 
 type ConfigMaptoYAML struct {
-	DescriptorsParent DescriptorsParent `yaml:"descriptors"`
-	Domain            string            `yaml:"domain"`
+	DescriptorsParent []DescriptorsParent `yaml:"descriptors"`
+	Domain            string              `yaml:"domain"`
 }
 
 func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, desiredNamespace string) (v1.ConfigMap, error) {
@@ -47,16 +47,27 @@ func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1al
 
 	configyaml := ConfigMaptoYAML{}
 
-	for _, dim := range rateLimitInstance.Spec.Dimensions {
-		// first dimension will be first key descriptor
-		for k, v := range dim {
-			fmt.Printf("%s -> %s\n", k, v)
-			for n, m := range v {
+	for _, dimension := range rateLimitInstance.Spec.Dimensions {
+		// we assume the second dimension is always destination_cluster ??
+		for k, ratelimitdimension := range dimension {
+			fmt.Printf("%s -> %s\n", k, ratelimitdimension)
+			for n, dimensionKey := range ratelimitdimension {
 				if n == "descriptor_key" {
 					configyaml = ConfigMaptoYAML{
-						DescriptorsParent: DescriptorsParent{
-							Descriptors: []Descriptors{},
-							Key:         m,
+						DescriptorsParent: []DescriptorsParent{
+							{
+								Descriptors: []Descriptors{
+									{
+										Key:   "destination_cluster",
+										Value: rateLimitInstance.Spec.DestinationCluster,
+										RateLimit: RateLimitDescriptor{
+											RequestsPerUnit: rateLimitInstance.Spec.RequestsPerUnit,
+											Unit:            rateLimitInstance.Spec.Unit,
+										},
+									},
+								},
+								Key: dimensionKey,
+							},
 						},
 						Domain: "test",
 					}

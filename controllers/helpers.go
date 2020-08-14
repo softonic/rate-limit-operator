@@ -2,11 +2,15 @@ package controllers
 
 import (
 	"fmt"
+	"github.com/gogo/protobuf/jsonpb"
+	protobuftypes "github.com/gogo/protobuf/types"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	"gopkg.in/yaml.v2"
+	istio "istio.io/api/networking/v1alpha3"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "strconv"
+	"strings"
 )
 
 type RateLimitDescriptor struct {
@@ -94,4 +98,19 @@ func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1al
 
 	return configMap, nil
 
+}
+
+func buildClusterPatches(config string) []*istio.EnvoyFilter_EnvoyConfigObjectPatch {
+	val := &protobuftypes.Struct{}
+	jsonpb.Unmarshal(strings.NewReader(config), val)
+
+	return []*istio.EnvoyFilter_EnvoyConfigObjectPatch{
+		{
+			ApplyTo: istio.EnvoyFilter_CLUSTER,
+			Patch: &istio.EnvoyFilter_Patch{
+				Operation: istio.EnvoyFilter_Patch_ADD,
+				Value:     val,
+			},
+		},
+	}
 }

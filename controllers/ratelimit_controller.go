@@ -26,7 +26,7 @@ import (
 	"reflect"
 
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
-	_ "istio.io/api/networking/v1alpha3"
+	istio "istio.io/api/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,7 +65,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	// this hack is not working, meanwhile I am using a real
+	// this hack is not working. Meanwhile I am using a real
 	// VirtualService.networking.softonic.io deployed in the same
 	// namespace ( config/samples/networking_v1alpha1_virtualservice.yaml )
 
@@ -79,9 +79,42 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	//envoyFilter := istio.EnvoyFilter{}
-
 	// ensure rate limit envoy cluster (envoyfilter is created): deploy through manifest or control it by controller?
+
+	config := `{"value":{"connect_timeout":"1.25s","hosts":[{"socket_address":null,"address":"local","port_value":8081}],"http2_protocol_options":{},"lb_policy":"ROUND_ROBIN","name":"rate_limit_service","type":"STRICT_DNS"}}`
+
+	EnvoyConfigObjectPatch := buildClusterPatches(config)
+
+	envoyFilter := istio.EnvoyFilter{
+		WorkloadSelector: &istio.WorkloadSelector{
+			Labels: map[string]string{"app": "istio-ingressgateway"},
+		},
+		ConfigPatches: EnvoyConfigObjectPatch,
+	}
+
+	fmt.Println(envoyFilter)
+
+	/* 	spec:
+	   	configPatches:
+	   	- applyTo: CLUSTER
+	   	  match:
+	   		cluster:
+	   		  service: istio-system-ratelimit.istio-system.svc.cluster.local
+	   	  patch:
+	   		operation: ADD
+	   		value:
+	   		  connect_timeout: 1.25s
+	   		  hosts:
+	   		  - socket_address:
+	   			  address: istio-system-ratelimit.istio-system.svc.cluster.local
+	   			  port_value: 8081
+	   		  http2_protocol_options: {}
+	   		  lb_policy: ROUND_ROBIN
+	   		  name: rate_limit_service
+	   		  type: STRICT_DNS
+	   	workloadSelector:
+	   	  labels:
+	   		app: istio-ingressgateway */
 
 	// istio namespace: Force application to be in the same namespace as istio? Pass istio root namespace as parameter?
 	// Fill envoy filter and create/update it

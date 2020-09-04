@@ -18,19 +18,32 @@ package controllers
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
+
 	"k8s.io/apimachinery/pkg/types"
+
+	// "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	// "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+
+	"k8s.io/client-go/dynamic"
+	// "k8s.io/client-go/rest"
 
 	"fmt"
 
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"reflect"
+
+	_ "log"
 
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	istio "istio.io/api/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	_ "log"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -39,8 +52,9 @@ import (
 // RateLimitReconciler reconciles a RateLimit object
 type RateLimitReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log           logr.Logger
+	Scheme        *runtime.Scheme
+	ClientDynamic dynamic.Interface
 }
 
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits,verbs=get;list;watch;create;update;patch;delete
@@ -50,7 +64,7 @@ type RateLimitReconciler struct {
 // +kubebuilder:rbac:groups=networking.istio.io,resources=envoyfilters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=envoyfilters/status,verbs=get
 
-// +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=*,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
@@ -94,6 +108,18 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	fmt.Println(envoyFilter)
 
+	resourceScheme := schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "envoyfilters"}
+
+	resp, err := r.ClientDynamic.Resource(resourceScheme).Namespace("istio-system").Get(context.TODO(), "ratelimit-cluster", v12.GetOptions{})
+	if err != nil {
+		fmt.Println("Error getting Envoy Filter")
+	}
+
+	// here we will create the envoyfilter of type unstructured.Unstructured
+
+	fmt.Println(resp)
+
+	
 	/* 	spec:
 	   	configPatches:
 	   	- applyTo: CLUSTER

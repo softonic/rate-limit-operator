@@ -7,6 +7,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
+	golang.org/x/tools v0.0.0-20190920225731-5eefd052ad72
 	gopkg.in/yaml.v2 v2.3.0
 	istio.io/api v0.0.0-20200724154434-34e474846e0d
 	istio.io/gogo-genproto v0.0.0-20200709220749-8607e17318e8

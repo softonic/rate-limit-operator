@@ -20,6 +20,12 @@ import (
 	"flag"
 	"os"
 
+	"k8s.io/client-go/tools/clientcmd"
+
+	"k8s.io/client-go/dynamic"
+	"os/user"
+	"path/filepath"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -67,9 +73,10 @@ func main() {
 	}
 
 	if err = (&controllers.RateLimitReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("RateLimit"),
-		Scheme: mgr.GetScheme(),
+		Client:        mgr.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("RateLimit"),
+		Scheme:        mgr.GetScheme(),
+		ClientDynamic: getClientDynamic(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RateLimit")
 		os.Exit(1)
@@ -81,4 +88,21 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func getClientDynamic() dynamic.Interface {
+	var clientD dynamic.Interface
+
+	// Running locally
+
+	usr, err := user.Current()
+	config := filepath.Join(usr.HomeDir, ".kube", "config")
+
+	cfg, err := clientcmd.BuildConfigFromFlags("", config)
+
+	clientD, err = dynamic.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+	return clientD
 }

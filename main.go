@@ -22,7 +22,9 @@ import (
 
 	"k8s.io/client-go/tools/clientcmd"
 
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+
 	"os/user"
 	"path/filepath"
 
@@ -72,11 +74,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	cd, dc := getClientDynamic()
+
 	if err = (&controllers.RateLimitReconciler{
-		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("RateLimit"),
-		Scheme:        mgr.GetScheme(),
-		ClientDynamic: getClientDynamic(),
+		Client:          mgr.GetClient(),
+		Log:             ctrl.Log.WithName("controllers").WithName("RateLimit"),
+		Scheme:          mgr.GetScheme(),
+		ClientDynamic:   cd,
+		DiscoveryClient: dc,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RateLimit")
 		os.Exit(1)
@@ -90,7 +95,7 @@ func main() {
 	}
 }
 
-func getClientDynamic() dynamic.Interface {
+func getClientDynamic() (dynamic.Interface, *discovery.DiscoveryClient) {
 	var clientD dynamic.Interface
 
 	// Running locally
@@ -100,9 +105,14 @@ func getClientDynamic() dynamic.Interface {
 
 	cfg, err := clientcmd.BuildConfigFromFlags("", config)
 
+	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+
 	clientD, err = dynamic.NewForConfig(cfg)
 	if err != nil {
 		panic(err)
 	}
-	return clientD
+	return clientD, dc
 }

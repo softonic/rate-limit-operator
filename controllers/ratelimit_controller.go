@@ -18,20 +18,26 @@ package controllers
 
 import (
 	"context"
+	// "encoding/json"
 
 	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/types"
 
-	// "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	// "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	//"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	//"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
 	"k8s.io/client-go/dynamic"
 	// "k8s.io/client-go/rest"
+	"k8s.io/client-go/discovery"
+	// "k8s.io/client-go/discovery/cached/memory"
+	// "k8s.io/client-go/restmapper"
 
 	"fmt"
 
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	// "k8s.io/apimachinery/pkg/api/meta"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -39,6 +45,7 @@ import (
 
 	_ "log"
 
+	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	istio "istio.io/api/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
@@ -52,9 +59,10 @@ import (
 // RateLimitReconciler reconciles a RateLimit object
 type RateLimitReconciler struct {
 	client.Client
-	Log           logr.Logger
-	Scheme        *runtime.Scheme
-	ClientDynamic dynamic.Interface
+	Log             logr.Logger
+	Scheme          *runtime.Scheme
+	ClientDynamic   dynamic.Interface
+	DiscoveryClient *discovery.DiscoveryClient
 }
 
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits,verbs=get;list;watch;create;update;patch;delete
@@ -83,13 +91,13 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// VirtualService.networking.softonic.io deployed in the same
 	// namespace ( config/samples/networking_v1alpha1_virtualservice.yaml )
 
-	virtualService := &networkingv1alpha1.VirtualService{}
+	virtualService := &istio_v1beta1.VirtualService{}
 	err = r.Get(context.TODO(), types.NamespacedName{
-		Namespace: rateLimitInstance.Spec.TargetRef.Namespace,
-		Name:      rateLimitInstance.Spec.TargetRef.Name,
+		Namespace: "ratelimitoperatortest",
+		Name:      "vs-test",
 	}, virtualService)
 	if err != nil {
-		fmt.Println("virtualservice not found")
+		fmt.Println(err)
 		return ctrl.Result{}, err
 	}
 
@@ -106,6 +114,8 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		ConfigPatches: EnvoyConfigObjectPatch,
 	}
 
+	//err = r.Create(context.TODO(), &envoyFilter)
+
 	fmt.Println(envoyFilter)
 
 	resourceScheme := schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "envoyfilters"}
@@ -119,7 +129,131 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	fmt.Println(resp)
 
-	
+	const deploymentYAML = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+`
+
+	const envoyManifest = `
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ratelimit-cluster
+  namespace: istio-system
+spec:
+  configPatches:
+  - applyTo: CLUSTER
+    match:
+      cluster:
+        service: istio-system-ratelimit.istio-system.svc.cluster.local
+    patch:
+      operation: ADD
+      value:
+        connect_timeout: 1.25s
+        hosts:
+        - socket_address:
+            address: istio-system-ratelimit.istio-system.svc.cluster.local
+            port_value: 8081
+        http2_protocol_options: {}
+        lb_policy: ROUND_ROBIN
+        name: rate_limit_service
+        type: STRICT_DNS
+  workloadSelector:
+    labels:
+      app: istio-ingressgateway
+	`
+
+	// envoyFilterUnstructured := &unstructured.Unstructured{
+	// 	Object: map[string]interface{}{
+	// 		"apiVersion": "networking.istio.io/v1alpha3",
+	// 		"kind":       "EnvoyFilter",
+	// 		"metadata": map[string]interface{}{
+	// 			"name": "ratelimit-cluster-dup",
+	// 			"namespace": "istio-system",
+	// 		},
+	// 		"spec": map[string]interface{}{
+	// 			"template": map[string]interface{}{
+	// 				"metadata": map[string]interface{}{
+	// 					"labels": map[string]interface{}{
+	// 						"app": "demo",
+	// 					},
+	// 				},
+
+	// 				"spec": map[string]interface{}{
+	// 					"containers": []map[string]interface{}{
+	// 						{
+	// 							"name":  "web",
+	// 							"image": "nginx:1.12",
+	// 							"ports": []map[string]interface{}{
+	// 								{
+	// 									"name":          "http",
+	// 									"protocol":      "TCP",
+	// 									"containerPort": 80,
+	// 								},
+	// 							},
+	// 						},
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	},
+	// }
+
+	// var decUnstructured = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+
+	// // 1. Prepare a RESTMapper to find GVR
+
+	// mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(r.DiscoveryClient))
+
+	// obj := &unstructured.Unstructured{}
+	// rto, gvk, err := decUnstructured.Decode([]byte(deploymentYAML), nil, obj)
+	// if err != nil {
+	// 	fmt.Println("Decode failed")
+	// }
+
+	// fmt.Println(rto)
+
+	// // 4. Find GVR
+	// mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	// if err != nil {
+	// 	fmt.Println("mapping failed")
+	// }
+
+	// // 5. Obtain REST interface for the GVR
+	// var dr dynamic.ResourceInterface
+
+	// if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+	// 	// namespaced resources should specify the namespace
+	// 	dr = r.ClientDynamic.Resource(mapping.Resource).Namespace(obj.GetNamespace())
+	// } else {
+	// 	// for cluster-wide resources
+	// 	dr = r.ClientDynamic.Resource(mapping.Resource)
+	// }
+
+	// data, err := json.Marshal(obj)
+	// if err != nil {
+	// 	fmt.Println("Marshal failed")
+	// }
+
+	// _, err = dr.Patch(context.TODO(), obj.GetName(), types.ApplyPatchType, data, v12.PatchOptions{
+	// 	FieldManager: "sample-controller",
+	// })
+
 	/* 	spec:
 	   	configPatches:
 	   	- applyTo: CLUSTER

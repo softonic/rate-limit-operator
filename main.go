@@ -20,20 +20,14 @@ import (
 	"flag"
 	"os"
 
-	"k8s.io/client-go/tools/clientcmd"
-
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
-
-	"os/user"
-	"path/filepath"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
+	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	"github.com/softonic/rate-limit-operator/controllers"
 	// +kubebuilder:scaffold:imports
@@ -49,6 +43,10 @@ func init() {
 
 	_ = networkingv1alpha1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
+
+	_ = istio_v1beta1.AddToScheme(scheme)
+
+	_ = istio_v1alpha3.AddToScheme(scheme)
 }
 
 func main() {
@@ -74,14 +72,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	cd, dc := getClientDynamic()
-
 	if err = (&controllers.RateLimitReconciler{
-		Client:          mgr.GetClient(),
-		Log:             ctrl.Log.WithName("controllers").WithName("RateLimit"),
-		Scheme:          mgr.GetScheme(),
-		ClientDynamic:   cd,
-		DiscoveryClient: dc,
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("RateLimit"),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RateLimit")
 		os.Exit(1)
@@ -93,26 +87,4 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-}
-
-func getClientDynamic() (dynamic.Interface, *discovery.DiscoveryClient) {
-	var clientD dynamic.Interface
-
-	// Running locally
-
-	usr, err := user.Current()
-	config := filepath.Join(usr.HomeDir, ".kube", "config")
-
-	cfg, err := clientcmd.BuildConfigFromFlags("", config)
-
-	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
-	if err != nil {
-		panic(err)
-	}
-
-	clientD, err = dynamic.NewForConfig(cfg)
-	if err != nil {
-		panic(err)
-	}
-	return clientD, dc
 }

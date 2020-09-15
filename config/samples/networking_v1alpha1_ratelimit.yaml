@@ -15,3 +15,5 @@ spec:
   - request_header:
       descriptor_key: remote_address
       header_name: x-custom-ip
+  workloadselector: 
+    app: istio-ingressgateway

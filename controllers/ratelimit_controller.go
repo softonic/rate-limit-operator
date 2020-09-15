@@ -18,51 +18,43 @@ package controllers
 
 import (
 	"context"
-	// "encoding/json"
+	"encoding/json"
 
 	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/types"
 
-	//"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	//"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-
-	"k8s.io/client-go/dynamic"
-	// "k8s.io/client-go/rest"
-	"k8s.io/client-go/discovery"
-	// "k8s.io/client-go/discovery/cached/memory"
-	// "k8s.io/client-go/restmapper"
-
 	"fmt"
-
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	// "k8s.io/apimachinery/pkg/api/meta"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"reflect"
 
 	_ "log"
 
+	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
-	istio "istio.io/api/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // RateLimitReconciler reconciles a RateLimit object
 type RateLimitReconciler struct {
 	client.Client
-	Log             logr.Logger
-	Scheme          *runtime.Scheme
-	ClientDynamic   dynamic.Interface
-	DiscoveryClient *discovery.DiscoveryClient
+	Log    logr.Logger
+	Scheme *runtime.Scheme
+}
+
+type EnvoyFilterObject struct {
+	ApplyTo               string
+	Operation             string
+	RawConfig             json.RawMessage
+	TypeConfigObjectMatch string
+	ClusterEndpoint       string
+	Context               string
+	Labels                map[string]string
 }
 
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits,verbs=get;list;watch;create;update;patch;delete
@@ -87,10 +79,6 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	// this hack is not working. Meanwhile I am using a real
-	// VirtualService.networking.softonic.io deployed in the same
-	// namespace ( config/samples/networking_v1alpha1_virtualservice.yaml )
-
 	virtualService := &istio_v1beta1.VirtualService{}
 	err = r.Get(context.TODO(), types.NamespacedName{
 		Namespace: "ratelimitoperatortest",
@@ -101,199 +89,103 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
+	fmt.Println(virtualService.Spec.Hosts)
+
+	baseName := req.Name
+
+	address := "istio-system-ratelimit.istio-system.svc.cluster.local"
+
+	payload := []byte(fmt.Sprintf(`{"connect_timeout": "1.25s", "hosts": [ { "socket_address": { "address": "%s", "port_value": 8081 } } ], "http2_protocol_options": {}, "lb_policy": "ROUND_ROBIN", "name": "rate_limit_service", "type": "STRICT_DNS" }`, address))
+
+	rawConfigCluster := json.RawMessage(payload)
+
+	labels := make(map[string]string)
+
+	labels = rateLimitInstance.Spec.WorkloadSelector
+
+	envoyFilterObjectCluster := EnvoyFilterObject{
+		Operation:             "ADD",
+		ApplyTo:               "CLUSTER",
+		RawConfig:             rawConfigCluster,
+		TypeConfigObjectMatch: "Cluster",
+		ClusterEndpoint:       "istio-system-ratelimit.istio-system.svc.cluster.local",
+		Labels:                labels,
+	}
+
 	// ensure rate limit envoy cluster (envoyfilter is created): deploy through manifest or control it by controller?
 
-	config := `{"value":{"connect_timeout":"1.25s","hosts":[{"socket_address":null,"address":"local","port_value":8081}],"http2_protocol_options":{},"lb_policy":"ROUND_ROBIN","name":"rate_limit_service","type":"STRICT_DNS"}}`
+	nameEnvoyFilter := baseName + "-cluster"
 
-	EnvoyConfigObjectPatch := buildClusterPatches(config)
+	envoyFilterClusterDesired := envoyFilterObjectCluster.getEnvoyFilter(nameEnvoyFilter, "istio-system")
 
-	envoyFilter := istio.EnvoyFilter{
-		WorkloadSelector: &istio.WorkloadSelector{
-			Labels: map[string]string{"app": "istio-ingressgateway"},
-		},
-		ConfigPatches: EnvoyConfigObjectPatch,
-	}
+	envoyFilterCluster := &istio_v1alpha3.EnvoyFilter{}
 
-	//err = r.Create(context.TODO(), &envoyFilter)
-
-	fmt.Println(envoyFilter)
-
-	resourceScheme := schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "envoyfilters"}
-
-	resp, err := r.ClientDynamic.Resource(resourceScheme).Namespace("istio-system").Get(context.TODO(), "ratelimit-cluster", v12.GetOptions{})
+	result, err := r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, nameEnvoyFilter)
 	if err != nil {
-		fmt.Println("Error getting Envoy Filter")
+		return result, err
 	}
 
-	// here we will create the envoyfilter of type unstructured.Unstructured
+	domain := baseName
 
-	fmt.Println(resp)
+	payload = []byte(fmt.Sprintf(`{"config":{"domain":"%s","rate_limit_service":{"grpc_service":{"envoy_grpc":{"cluster_name":"rate_limit_service"},"timeout":"1.25s"}}},"name":"envoy.rate_limit"}`, domain))
 
-	const deploymentYAML = `
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-deployment
-  namespace: default
-spec:
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:latest
-`
+	rawConfigHTTPFilter := json.RawMessage(payload)
 
-	const envoyManifest = `
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: ratelimit-cluster
-  namespace: istio-system
-spec:
-  configPatches:
-  - applyTo: CLUSTER
-    match:
-      cluster:
-        service: istio-system-ratelimit.istio-system.svc.cluster.local
-    patch:
-      operation: ADD
-      value:
-        connect_timeout: 1.25s
-        hosts:
-        - socket_address:
-            address: istio-system-ratelimit.istio-system.svc.cluster.local
-            port_value: 8081
-        http2_protocol_options: {}
-        lb_policy: ROUND_ROBIN
-        name: rate_limit_service
-        type: STRICT_DNS
-  workloadSelector:
-    labels:
-      app: istio-ingressgateway
-	`
+	envoyFilterObjectListener := EnvoyFilterObject{
+		Operation:             "INSERT_BEFORE",
+		ApplyTo:               "HTTP_FILTER",
+		RawConfig:             rawConfigHTTPFilter,
+		TypeConfigObjectMatch: "Listener",
+		Context:               "GATEWAY",
+		Labels:                labels,
+	}
 
-	// envoyFilterUnstructured := &unstructured.Unstructured{
-	// 	Object: map[string]interface{}{
-	// 		"apiVersion": "networking.istio.io/v1alpha3",
-	// 		"kind":       "EnvoyFilter",
-	// 		"metadata": map[string]interface{}{
-	// 			"name": "ratelimit-cluster-dup",
-	// 			"namespace": "istio-system",
-	// 		},
-	// 		"spec": map[string]interface{}{
-	// 			"template": map[string]interface{}{
-	// 				"metadata": map[string]interface{}{
-	// 					"labels": map[string]interface{}{
-	// 						"app": "demo",
-	// 					},
-	// 				},
+	nameEnvoyFilter = baseName + "-envoy-filter"
 
-	// 				"spec": map[string]interface{}{
-	// 					"containers": []map[string]interface{}{
-	// 						{
-	// 							"name":  "web",
-	// 							"image": "nginx:1.12",
-	// 							"ports": []map[string]interface{}{
-	// 								{
-	// 									"name":          "http",
-	// 									"protocol":      "TCP",
-	// 									"containerPort": 80,
-	// 								},
-	// 							},
-	// 						},
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// }
+	envoyFilterHTTPFilterDesired := envoyFilterObjectListener.getEnvoyFilter(nameEnvoyFilter, "istio-system")
 
-	// var decUnstructured = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	envoyFilterHTTPFilter := &istio_v1alpha3.EnvoyFilter{}
 
-	// // 1. Prepare a RESTMapper to find GVR
+	result, err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, nameEnvoyFilter)
+	if err != nil {
+		return result, err
+	}
 
-	// mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(r.DiscoveryClient))
+	rawConfigHTTPRoute := json.RawMessage(`{"route":{"rate_limits":[{"actions":[{"request_headers":{"descriptor_key":"remote_address","header_name":"x-custom-user-ip"}},{"destination_cluster":{}}]}]}}`)
 
-	// obj := &unstructured.Unstructured{}
-	// rto, gvk, err := decUnstructured.Decode([]byte(deploymentYAML), nil, obj)
-	// if err != nil {
-	// 	fmt.Println("Decode failed")
-	// }
+	envoyFilterObjectRouteConfiguration := EnvoyFilterObject{
+		Operation:             "MERGE",
+		ApplyTo:               "HTTP_ROUTE",
+		RawConfig:             rawConfigHTTPRoute,
+		TypeConfigObjectMatch: "RouteConfiguration",
+		Context:               "GATEWAY",
+		Labels:                labels,
+	}
 
-	// fmt.Println(rto)
+	nameEnvoyFilter = baseName + "-route"
 
-	// // 4. Find GVR
-	// mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-	// if err != nil {
-	// 	fmt.Println("mapping failed")
-	// }
+	envoyFilterHTTPRouteDesired := envoyFilterObjectRouteConfiguration.getEnvoyFilter(nameEnvoyFilter, "istio-system")
 
-	// // 5. Obtain REST interface for the GVR
-	// var dr dynamic.ResourceInterface
+	envoyFilterHTTPRoute := &istio_v1alpha3.EnvoyFilter{}
 
-	// if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
-	// 	// namespaced resources should specify the namespace
-	// 	dr = r.ClientDynamic.Resource(mapping.Resource).Namespace(obj.GetNamespace())
-	// } else {
-	// 	// for cluster-wide resources
-	// 	dr = r.ClientDynamic.Resource(mapping.Resource)
-	// }
-
-	// data, err := json.Marshal(obj)
-	// if err != nil {
-	// 	fmt.Println("Marshal failed")
-	// }
-
-	// _, err = dr.Patch(context.TODO(), obj.GetName(), types.ApplyPatchType, data, v12.PatchOptions{
-	// 	FieldManager: "sample-controller",
-	// })
-
-	/* 	spec:
-	   	configPatches:
-	   	- applyTo: CLUSTER
-	   	  match:
-	   		cluster:
-	   		  service: istio-system-ratelimit.istio-system.svc.cluster.local
-	   	  patch:
-	   		operation: ADD
-	   		value:
-	   		  connect_timeout: 1.25s
-	   		  hosts:
-	   		  - socket_address:
-	   			  address: istio-system-ratelimit.istio-system.svc.cluster.local
-	   			  port_value: 8081
-	   		  http2_protocol_options: {}
-	   		  lb_policy: ROUND_ROBIN
-	   		  name: rate_limit_service
-	   		  type: STRICT_DNS
-	   	workloadSelector:
-	   	  labels:
-	   		app: istio-ingressgateway */
-
-	// istio namespace: Force application to be in the same namespace as istio? Pass istio root namespace as parameter?
-	// Fill envoy filter and create/update it
+	result, err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, nameEnvoyFilter)
+	if err != nil {
+		return result, err
+	}
 
 	// Generate rate limit server configmap
 	// create and update it
 
 	controllerNamespace := "istio-system"
 
-	configmapDesired, err := r.desiredConfigMap(rateLimitInstance, controllerNamespace)
+	configmapDesired, err := r.desiredConfigMap(rateLimitInstance, controllerNamespace, baseName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	fmt.Println("we have a configmap to apply", configmapDesired)
-
 	found := v1.ConfigMap{}
 
-	err = r.Get(context.TODO(), types.NamespacedName{Namespace: controllerNamespace, Name: "test"}, &found)
+	err = r.Get(context.TODO(), types.NamespacedName{Namespace: controllerNamespace, Name: baseName}, &found)
 	if err != nil {
 		fmt.Println("could not find the configmap")
 

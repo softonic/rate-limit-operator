@@ -39,6 +39,7 @@ type RateLimitSpec struct {
 	Unit               string             `json:"unit"`
 	RequestsPerUnit    uint32             `json:"requestPerUnit"`
 	Dimensions         DimensionsList     `json:"dimensions"`
+	WorkloadSelector   map[string]string  `json:"workloadselector"`
 }
 
 // RateLimitStatus defines the observed state of RateLimit

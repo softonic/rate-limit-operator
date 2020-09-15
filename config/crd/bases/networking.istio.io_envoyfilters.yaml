@@ -1,0 +1,262 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.0
+  creationTimestamp: null
+  name: envoyfilters.networking.istio.io
+spec:
+  group: networking.istio.io
+  names:
+    kind: EnvoyFilter
+    listKind: EnvoyFilterList
+    plural: envoyfilters
+    singular: envoyfilter
+  scope: Namespaced
+  versions:
+  - name: istio_v1alpha3
+    schema:
+      openAPIV3Schema:
+        description: EnvoyFilter is the Schema for the EnvoyFilters API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: EnvoyFilterSpec defines the desired state of EnvoyFilter
+            properties:
+              configPatches:
+                items:
+                  properties:
+                    applyTo:
+                      type: string
+                    match:
+                      properties:
+                        cluster:
+                          properties:
+                            name:
+                              description: The exact name of the cluster to match.
+                                To match a specific cluster by name, such as the internally
+                                generated "Passthrough" cluster, leave all fields
+                                in clusterMatch empty, except the name.
+                              type: string
+                            port_number:
+                              description: The service port for which this cluster
+                                was generated.  If omitted, applies to clusters for
+                                any port.
+                              format: int32
+                              type: integer
+                            service:
+                              description: The fully qualified service name for this
+                                cluster. If omitted, applies to clusters for any service.
+                                For services defined through service entries, the
+                                service name is same as the hosts defined in the service
+                                entry.
+                              type: string
+                            subset:
+                              description: The subset associated with the service.
+                                If omitted, applies to clusters for any subset of
+                                a service.
+                              type: string
+                          type: object
+                        context:
+                          type: string
+                        listener:
+                          description: "Types that are valid to be assigned to ObjectTypes:
+                            \t*EnvoyFilter_EnvoyConfigObjectMatch_Listener \t*EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration
+                            \t*EnvoyConfigObjectMatch_Cluster ObjectTypes          EnvoyConfigObjectMatch_Listener
+                            `protobuf_oneof:\"object_types\"` ObjectTypes          isEnvoyFilter_EnvoyConfigObjectMatch_ObjectTypes
+                            `protobuf_oneof:\"object_types\"`"
+                          properties:
+                            filter_chain:
+                              description: Match a specific filter chain in a listener.
+                                If specified, the patch will be applied to the filter
+                                chain (and a specific filter if specified) and not
+                                to other filter chains in the listener.
+                              properties:
+                                application_protocols:
+                                  description: "Applies only to sidecars. If non-empty,
+                                    a comma separated set of application protocols
+                                    to consider when determining a filter chain match.
+                                    \ This value will be compared against the application
+                                    protocols of a new connection, when it's detected
+                                    by one of the listener filters such as the http_inspector.
+                                    \n Accepted values include: h2,http/1.1,http/1.0"
+                                  type: string
+                                filter:
+                                  description: The name of a specific filter to apply
+                                    the patch to. Set this to envoy.filters.network.http_connection_manager
+                                    to add a filter or apply a patch to the HTTP connection
+                                    manager.
+                                  properties:
+                                    name:
+                                      description: The filter name to match on. For
+                                        standard Envoy filters, canonical filter names
+                                        should be used. Refer to https://www.envoyproxy.io/docs/envoy/latest/version_history/v1.14.0#deprecated
+                                        for canonical names.
+                                      type: string
+                                    sub_filter:
+                                      description: The next level filter within this
+                                        filter to match upon. Typically used for HTTP
+                                        Connection Manager filters and Thrift filters.
+                                      properties:
+                                        name:
+                                          description: The filter name to match on.
+                                          type: string
+                                      type: object
+                                  type: object
+                                name:
+                                  description: The name assigned to the filter chain.
+                                  type: string
+                                sni:
+                                  description: The SNI value used by a filter chain's
+                                    match condition.  This condition will evaluate
+                                    to false if the filter chain has no sni match.
+                                  type: string
+                                transport_protocol:
+                                  description: "Applies only to SIDECAR_INBOUND context.
+                                    If non-empty, a transport protocol to consider
+                                    when determining a filter chain match.  This value
+                                    will be compared against the transport protocol
+                                    of a new connection, when it's detected by the
+                                    tls_inspector listener filter. \n Accepted values
+                                    include: \n * `raw_buffer` - default, used when
+                                    no transport protocol is detected. * `tls` - set
+                                    when TLS protocol is detected by the TLS inspector."
+                                  type: string
+                              type: object
+                            name:
+                              description: Match a specific listener by its name.
+                                The listeners generated by Pilot are typically named
+                                as IP:Port.
+                              type: string
+                            port_name:
+                              description: Instead of using specific port numbers,
+                                a set of ports matching a given service's port name
+                                can be selected. Matching is case insensitive. Not
+                                implemented. $hide_from_docs
+                              type: string
+                            port_number:
+                              description: The service port/gateway port to which
+                                traffic is being sent/received. If not specified,
+                                matches all listeners. Even though inbound listeners
+                                are generated for the instance/pod ports, only service
+                                ports should be used to match listeners.
+                              format: int32
+                              type: integer
+                          type: object
+                        proxy:
+                          properties:
+                            metadata:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            proxyVersion:
+                              type: string
+                          type: object
+                        routeConfiguration:
+                          properties:
+                            gateway:
+                              description: The Istio gateway config's namespace/name
+                                for which this route configuration was generated.
+                                Applies only if the context is GATEWAY. Should be
+                                in the namespace/name format. Use this field in conjunction
+                                with the portNumber and portName to accurately select
+                                the Envoy route configuration for a specific HTTPS
+                                server within a gateway config object.
+                              type: string
+                            name:
+                              description: Route configuration name to match on. Can
+                                be used to match a specific route configuration by
+                                name, such as the internally generated "http_proxy"
+                                route configuration for all sidecars.
+                              type: string
+                            port_name:
+                              description: Applicable only for GATEWAY context. The
+                                gateway server port name for which this route configuration
+                                was generated.
+                              type: string
+                            port_number:
+                              description: The service port number or gateway server
+                                port number for which this route configuration was
+                                generated. If omitted, applies to route configurations
+                                for all ports.
+                              format: int32
+                              type: integer
+                            vhost:
+                              description: Match a specific virtual host in a route
+                                configuration and apply the patch to the virtual host.
+                              properties:
+                                name:
+                                  description: The VirtualHosts objects generated
+                                    by Istio are named as host:port, where the host
+                                    typically corresponds to the VirtualService's
+                                    host field or the hostname of a service in the
+                                    registry.
+                                  type: string
+                                route:
+                                  description: Match a specific route within the virtual
+                                    host.
+                                  properties:
+                                    action:
+                                      description: Match a route with specific action
+                                        type.
+                                      type: string
+                                    name:
+                                      description: The Route objects generated by
+                                        default are named as "default".  Route objects
+                                        generated using a virtual service will carry
+                                        the name used in the virtual service's HTTP
+                                        routes.
+                                      type: string
+                                  type: object
+                              type: object
+                          type: object
+                      type: object
+                    patch:
+                      properties:
+                        filterClass:
+                          format: int32
+                          type: integer
+                        operation:
+                          type: string
+                        value:
+                          type: Any
+                      type: object
+                  type: object
+                type: array
+              workloadSelector:
+                properties:
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: One or more labels that indicate a specific set of
+                      pods/VMs on which the configuration should be applied. The scope
+                      of label search is restricted to the configuration namespace
+                      in which the the resource is present.
+                    type: object
+                type: object
+            type: object
+          status:
+            description: EnvoyFilterStatus defines the observed state of EnvoyFilter
+            type: object
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

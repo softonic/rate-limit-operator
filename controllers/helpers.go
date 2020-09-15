@@ -1,16 +1,19 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/gogo/protobuf/jsonpb"
-	protobuftypes "github.com/gogo/protobuf/types"
+
+	"context"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	"gopkg.in/yaml.v2"
-	istio "istio.io/api/networking/v1alpha3"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	_ "strconv"
-	"strings"
 )
 
 type RateLimitDescriptor struct {
@@ -34,25 +37,14 @@ type ConfigMaptoYAML struct {
 	Domain            string              `yaml:"domain"`
 }
 
-func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, desiredNamespace string) (v1.ConfigMap, error) {
+func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, desiredNamespace string, name string) (v1.ConfigMap, error) {
 
 	configMapData := make(map[string]string)
-
-	// test.yaml: |-
-	// descriptors:
-	// - descriptors:
-	//   - key: destination_cluster
-	//     rate_limit:
-	//       requests_per_unit: 5
-	//       unit: minute
-	//     value: outbound|80||chicken-head-nginx.chicken-head.svc.cluster.local
-	//   key: remote_address
-	// domain: test
 
 	configyaml := ConfigMaptoYAML{}
 
 	for _, dimension := range rateLimitInstance.Spec.Dimensions {
-		// we assume the second dimension is always destination_cluster ??
+		// we assume the second dimension is always destination_cluster
 		for k, ratelimitdimension := range dimension {
 			fmt.Printf("%s -> %s\n", k, ratelimitdimension)
 			for n, dimensionKey := range ratelimitdimension {
@@ -73,7 +65,7 @@ func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1al
 								Key: dimensionKey,
 							},
 						},
-						Domain: "test",
+						Domain: name,
 					}
 				}
 			}
@@ -82,7 +74,9 @@ func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1al
 
 	configYamlFile, _ := yaml.Marshal(&configyaml)
 
-	configMapData["test.yaml"] = string(configYamlFile)
+	fileName := name + ".yaml"
+
+	configMapData[fileName] = string(configYamlFile)
 
 	configMap := v1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -90,7 +84,7 @@ func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1al
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
+			Name:      name,
 			Namespace: desiredNamespace,
 		},
 		Data: configMapData,
@@ -100,17 +94,122 @@ func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1al
 
 }
 
-func buildClusterPatches(config string) []*istio.EnvoyFilter_EnvoyConfigObjectPatch {
-	val := &protobuftypes.Struct{}
-	jsonpb.Unmarshal(strings.NewReader(config), val)
+func getConfigObjectMatch(typeConfigObjectMatch string, operation string, clusterEndpoint string, context string) istio_v1alpha3.EnvoyConfigObjectMatch {
 
-	return []*istio.EnvoyFilter_EnvoyConfigObjectPatch{
-		{
-			ApplyTo: istio.EnvoyFilter_CLUSTER,
-			Patch: &istio.EnvoyFilter_Patch{
-				Operation: istio.EnvoyFilter_Patch_ADD,
-				Value:     val,
+	Match := istio_v1alpha3.EnvoyConfigObjectMatch{}
+
+	if typeConfigObjectMatch == "Listener" {
+
+		Match = istio_v1alpha3.EnvoyConfigObjectMatch{
+			Context: context,
+			Listener: &istio_v1alpha3.ListenerMatch{
+				FilterChain: istio_v1alpha3.ListenerMatch_FilterChainMatch{
+					Filter: istio_v1alpha3.ListenerMatch_FilterMatch{
+						Name: "envoy.http_connection_manager",
+						SubFilter: istio_v1alpha3.ListenerMatch_SubFilterMatch{
+							Name: "envoy.router",
+						},
+					},
+				},
 			},
+		}
+
+	}
+
+	if typeConfigObjectMatch == "Cluster" {
+
+		Match = istio_v1alpha3.EnvoyConfigObjectMatch{
+			Cluster: &istio_v1alpha3.ClusterMatch{
+				Service: clusterEndpoint,
+			},
+		}
+
+	}
+
+	if typeConfigObjectMatch == "RouteConfiguration" {
+
+		Match = istio_v1alpha3.EnvoyConfigObjectMatch{
+			Context: context,
+			RouteConfiguration: &istio_v1alpha3.RouteConfigurationMatch{
+				Vhost: istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{
+					Name: "*:80",
+					Route: istio_v1alpha3.RouteConfigurationMatch_RouteMatch{
+						Action: "ANY",
+					},
+				},
+			},
+		}
+
+	}
+
+	return Match
+
+}
+
+func getEnvoyFilterConfigPatches(applyTo string, operation string, rawConfig json.RawMessage, typeConfigObjectMatch string, clusterEndpoint string, context string) []istio_v1alpha3.EnvoyConfigObjectPatch {
+
+	ConfigPatches := []istio_v1alpha3.EnvoyConfigObjectPatch{
+		{
+			ApplyTo: applyTo,
+			Patch: istio_v1alpha3.Patch{
+				Operation: operation,
+				Value:     rawConfig,
+			},
+			Match: getConfigObjectMatch(typeConfigObjectMatch, operation, clusterEndpoint, context),
 		},
 	}
+
+	return ConfigPatches
+
+}
+
+func (e EnvoyFilterObject) getEnvoyFilter(name string, namespace string) istio_v1alpha3.EnvoyFilter {
+
+	envoyFilterBaseDesired := istio_v1alpha3.EnvoyFilter{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "EnvoyFilter",
+			APIVersion: "networking.istio.io/v1alpha3",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: istio_v1alpha3.EnvoyFilterSpec{
+			WorkloadSelector: istio_v1alpha3.WorkloadSelector{
+				Labels: e.Labels,
+			},
+			ConfigPatches: getEnvoyFilterConfigPatches(e.ApplyTo, e.Operation, e.RawConfig, e.TypeConfigObjectMatch, e.ClusterEndpoint, e.Context),
+		},
+	}
+
+	return envoyFilterBaseDesired
+
+}
+
+func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilter, found *istio_v1alpha3.EnvoyFilter, nameEnvoyFilter string) (ctrl.Result, error) {
+
+	err := r.Get(context.TODO(), types.NamespacedName{
+		Namespace: "istio-system",
+		Name:      nameEnvoyFilter,
+	}, found)
+	if err != nil {
+		fmt.Println(err)
+		err = r.Create(context.TODO(), &desired)
+		if err != nil {
+			fmt.Println(err)
+			return ctrl.Result{}, err
+		}
+	} else {
+
+		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
+
+		err = r.Patch(context.TODO(), &desired, client.Apply, applyOpts...)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	return ctrl.Result{}, nil
+
 }

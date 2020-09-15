@@ -28,6 +28,8 @@ import (
 
 	"reflect"
 
+	"strings"
+
 	_ "log"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
@@ -55,6 +57,7 @@ type EnvoyFilterObject struct {
 	ClusterEndpoint       string
 	Context               string
 	Labels                map[string]string
+	NameVhost             string
 }
 
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits,verbs=get;list;watch;create;update;patch;delete
@@ -76,7 +79,39 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	err := r.Get(context.TODO(), req.NamespacedName, rateLimitInstance)
 	if err != nil {
-		return ctrl.Result{}, err
+		//return ctrl.Result{}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	finalizer := "ratelimit.networking.softonic.io"
+
+	beingDeleted := rateLimitInstance.GetDeletionTimestamp() != nil
+
+	fmt.Println(rateLimitInstance.GetFinalizers())
+
+	envoyFilterCluster := &istio_v1alpha3.EnvoyFilter{}
+
+	err = r.Get(context.TODO(), types.NamespacedName{
+		Namespace: "istio-system",
+		Name:      "ratelimit-sample-cluster",
+	}, envoyFilterCluster)
+
+	if beingDeleted {
+		if containsString(rateLimitInstance.GetFinalizers(), finalizer) {
+
+			r.Delete(context.TODO(), envoyFilterCluster)
+			if err != nil {
+				fmt.Println("cannot delete envoy filter")
+				return ctrl.Result{}, err
+			}
+
+			rateLimitInstance.SetFinalizers(remove(rateLimitInstance.GetFinalizers(), finalizer))
+			err := r.Update(context.TODO(), rateLimitInstance)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
 	}
 
 	virtualService := &istio_v1beta1.VirtualService{}
@@ -90,6 +125,10 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	fmt.Println(virtualService.Spec.Hosts)
+
+	firstElementHosts := strings.Join(virtualService.Spec.Hosts, "")
+
+	nameVhost := firstElementHosts + ":80"
 
 	baseName := req.Name
 
@@ -118,7 +157,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	envoyFilterClusterDesired := envoyFilterObjectCluster.getEnvoyFilter(nameEnvoyFilter, "istio-system")
 
-	envoyFilterCluster := &istio_v1alpha3.EnvoyFilter{}
+	envoyFilterCluster = &istio_v1alpha3.EnvoyFilter{}
 
 	result, err := r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, nameEnvoyFilter)
 	if err != nil {
@@ -160,6 +199,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		TypeConfigObjectMatch: "RouteConfiguration",
 		Context:               "GATEWAY",
 		Labels:                labels,
+		NameVhost:             nameVhost,
 	}
 
 	nameEnvoyFilter = baseName + "-route"
@@ -225,4 +265,23 @@ func (r *RateLimitReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.RateLimit{}).
 		Complete(r)
+}
+
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
+}
+
+func remove(slice []string, s string) (result []string) {
+	for _, item := range slice {
+		if item == s {
+			continue
+		}
+		result = append(result, item)
+	}
+	return
 }

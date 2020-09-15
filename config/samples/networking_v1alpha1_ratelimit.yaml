@@ -2,6 +2,8 @@ apiVersion: networking.softonic.io/v1alpha1
 kind: RateLimit
 metadata:
   name: ratelimit-sample
+  finalizers:
+  - ratelimit.networking.softonic.io
 spec:
   targetRef:
     apiVersion: "networking.istio.io/v1alpha3"

@@ -94,7 +94,7 @@ func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1al
 
 }
 
-func getConfigObjectMatch(typeConfigObjectMatch string, operation string, clusterEndpoint string, context string) istio_v1alpha3.EnvoyConfigObjectMatch {
+func getConfigObjectMatch(typeConfigObjectMatch string, operation string, clusterEndpoint string, context string, nameVhost string) istio_v1alpha3.EnvoyConfigObjectMatch {
 
 	Match := istio_v1alpha3.EnvoyConfigObjectMatch{}
 
@@ -132,7 +132,7 @@ func getConfigObjectMatch(typeConfigObjectMatch string, operation string, cluste
 			Context: context,
 			RouteConfiguration: &istio_v1alpha3.RouteConfigurationMatch{
 				Vhost: istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{
-					Name: "*:80",
+					Name: nameVhost,
 					Route: istio_v1alpha3.RouteConfigurationMatch_RouteMatch{
 						Action: "ANY",
 					},
@@ -146,7 +146,7 @@ func getConfigObjectMatch(typeConfigObjectMatch string, operation string, cluste
 
 }
 
-func getEnvoyFilterConfigPatches(applyTo string, operation string, rawConfig json.RawMessage, typeConfigObjectMatch string, clusterEndpoint string, context string) []istio_v1alpha3.EnvoyConfigObjectPatch {
+func getEnvoyFilterConfigPatches(applyTo string, operation string, rawConfig json.RawMessage, typeConfigObjectMatch string, clusterEndpoint string, context string, nameVhost string) []istio_v1alpha3.EnvoyConfigObjectPatch {
 
 	ConfigPatches := []istio_v1alpha3.EnvoyConfigObjectPatch{
 		{
@@ -155,7 +155,7 @@ func getEnvoyFilterConfigPatches(applyTo string, operation string, rawConfig jso
 				Operation: operation,
 				Value:     rawConfig,
 			},
-			Match: getConfigObjectMatch(typeConfigObjectMatch, operation, clusterEndpoint, context),
+			Match: getConfigObjectMatch(typeConfigObjectMatch, operation, clusterEndpoint, context, nameVhost),
 		},
 	}
 
@@ -178,7 +178,7 @@ func (e EnvoyFilterObject) getEnvoyFilter(name string, namespace string) istio_v
 			WorkloadSelector: istio_v1alpha3.WorkloadSelector{
 				Labels: e.Labels,
 			},
-			ConfigPatches: getEnvoyFilterConfigPatches(e.ApplyTo, e.Operation, e.RawConfig, e.TypeConfigObjectMatch, e.ClusterEndpoint, e.Context),
+			ConfigPatches: getEnvoyFilterConfigPatches(e.ApplyTo, e.Operation, e.RawConfig, e.TypeConfigObjectMatch, e.ClusterEndpoint, e.Context, e.NameVhost),
 		},
 	}
 

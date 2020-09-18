@@ -79,34 +79,55 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	err := r.Get(context.TODO(), req.NamespacedName, rateLimitInstance)
 	if err != nil {
-		//return ctrl.Result{}, err
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
+	baseName := req.Name
+
+	controllerNamespace := "istio-system"
 
 	finalizer := "ratelimit.networking.softonic.io"
 
 	beingDeleted := rateLimitInstance.GetDeletionTimestamp() != nil
 
-	fmt.Println(rateLimitInstance.GetFinalizers())
+	envoyFilterCluster := r.getEnvoyFilter(baseName + "-cluster", controllerNamespace)
 
-	envoyFilterCluster := &istio_v1alpha3.EnvoyFilter{}
+	envoyFilterHTTPFilter := r.getEnvoyFilter(baseName + "-envoy-filter", controllerNamespace)
 
-	err = r.Get(context.TODO(), types.NamespacedName{
-		Namespace: "istio-system",
-		Name:      "ratelimit-sample-cluster",
-	}, envoyFilterCluster)
+	envoyFilterHTTPRoute := r.getEnvoyFilter(baseName + "-route", controllerNamespace)
+
+	configMapRateLimit,err := r.getConfigMap(baseName, controllerNamespace)
 
 	if beingDeleted {
+
 		if containsString(rateLimitInstance.GetFinalizers(), finalizer) {
 
-			r.Delete(context.TODO(), envoyFilterCluster)
+			err := r.deleteEnvoyFilter(*envoyFilterCluster)
 			if err != nil {
 				fmt.Println("cannot delete envoy filter")
 				return ctrl.Result{}, err
 			}
 
+			err = r.deleteEnvoyFilter(*envoyFilterHTTPFilter)
+			if err != nil {
+				fmt.Println("cannot delete envoy filter")
+				return ctrl.Result{}, err
+			}
+
+			err = r.deleteEnvoyFilter(*envoyFilterHTTPRoute)
+			if err != nil {
+				fmt.Println("cannot delete envoy filter")
+				return ctrl.Result{}, err
+			}
+
+			err = r.deleteConfigMap(configMapRateLimit)
+			if err != nil {
+				fmt.Println("cannot delete config Map")
+				return ctrl.Result{}, err
+			}
+
 			rateLimitInstance.SetFinalizers(remove(rateLimitInstance.GetFinalizers(), finalizer))
-			err := r.Update(context.TODO(), rateLimitInstance)
+			err = r.Update(context.TODO(), rateLimitInstance)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -124,13 +145,9 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	fmt.Println(virtualService.Spec.Hosts)
-
 	firstElementHosts := strings.Join(virtualService.Spec.Hosts, "")
 
 	nameVhost := firstElementHosts + ":80"
-
-	baseName := req.Name
 
 	address := "istio-system-ratelimit.istio-system.svc.cluster.local"
 
@@ -151,15 +168,12 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		Labels:                labels,
 	}
 
-	// ensure rate limit envoy cluster (envoyfilter is created): deploy through manifest or control it by controller?
 
-	nameEnvoyFilter := baseName + "-cluster"
-
-	envoyFilterClusterDesired := envoyFilterObjectCluster.getEnvoyFilter(nameEnvoyFilter, "istio-system")
+	envoyFilterClusterDesired := envoyFilterObjectCluster.composeEnvoyFilter(baseName + "-cluster", controllerNamespace)
 
 	envoyFilterCluster = &istio_v1alpha3.EnvoyFilter{}
 
-	result, err := r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, nameEnvoyFilter)
+	result, err := r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, baseName + "-cluster")
 	if err != nil {
 		return result, err
 	}
@@ -179,13 +193,12 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		Labels:                labels,
 	}
 
-	nameEnvoyFilter = baseName + "-envoy-filter"
 
-	envoyFilterHTTPFilterDesired := envoyFilterObjectListener.getEnvoyFilter(nameEnvoyFilter, "istio-system")
+	envoyFilterHTTPFilterDesired := envoyFilterObjectListener.composeEnvoyFilter(baseName + "-envoy-filter", controllerNamespace)
 
-	envoyFilterHTTPFilter := &istio_v1alpha3.EnvoyFilter{}
+	envoyFilterHTTPFilter = &istio_v1alpha3.EnvoyFilter{}
 
-	result, err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, nameEnvoyFilter)
+	result, err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, baseName + "-envoy-filter")
 	if err != nil {
 		return result, err
 	}
@@ -202,21 +215,16 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		NameVhost:             nameVhost,
 	}
 
-	nameEnvoyFilter = baseName + "-route"
 
-	envoyFilterHTTPRouteDesired := envoyFilterObjectRouteConfiguration.getEnvoyFilter(nameEnvoyFilter, "istio-system")
+	envoyFilterHTTPRouteDesired := envoyFilterObjectRouteConfiguration.composeEnvoyFilter(baseName + "-route", controllerNamespace)
 
-	envoyFilterHTTPRoute := &istio_v1alpha3.EnvoyFilter{}
+	envoyFilterHTTPRoute = &istio_v1alpha3.EnvoyFilter{}
 
-	result, err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, nameEnvoyFilter)
+	result, err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, baseName + "-route")
 	if err != nil {
 		return result, err
 	}
 
-	// Generate rate limit server configmap
-	// create and update it
-
-	controllerNamespace := "istio-system"
 
 	configmapDesired, err := r.desiredConfigMap(rateLimitInstance, controllerNamespace, baseName)
 	if err != nil {
@@ -225,8 +233,10 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	found := v1.ConfigMap{}
 
-	err = r.Get(context.TODO(), types.NamespacedName{Namespace: controllerNamespace, Name: baseName}, &found)
-	if err != nil {
+
+	configMapRateLimit,err = r.getConfigMap(baseName, controllerNamespace)
+
+    if err != nil {
 		fmt.Println("could not find the configmap")
 
 		err = r.Create(context.TODO(), &configmapDesired)

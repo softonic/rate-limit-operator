@@ -6,8 +6,6 @@ import (
 
 	"context"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
@@ -163,7 +161,7 @@ func getEnvoyFilterConfigPatches(applyTo string, operation string, rawConfig jso
 
 }
 
-func (e EnvoyFilterObject) getEnvoyFilter(name string, namespace string) istio_v1alpha3.EnvoyFilter {
+func (e EnvoyFilterObject) composeEnvoyFilter(name string, namespace string) istio_v1alpha3.EnvoyFilter {
 
 	envoyFilterBaseDesired := istio_v1alpha3.EnvoyFilter{
 		TypeMeta: metav1.TypeMeta{
@@ -186,30 +184,43 @@ func (e EnvoyFilterObject) getEnvoyFilter(name string, namespace string) istio_v
 
 }
 
-func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilter, found *istio_v1alpha3.EnvoyFilter, nameEnvoyFilter string) (ctrl.Result, error) {
+func (r *RateLimitReconciler) getEnvoyFilter(name string, namespace string) *istio_v1alpha3.EnvoyFilter {
+
+	envoyFilter := istio_v1alpha3.EnvoyFilter{}
 
 	err := r.Get(context.TODO(), types.NamespacedName{
-		Namespace: "istio-system",
-		Name:      nameEnvoyFilter,
-	}, found)
+		Namespace: namespace,
+		Name:      name,
+	}, &envoyFilter)
 	if err != nil {
-		fmt.Println(err)
-		err = r.Create(context.TODO(), &desired)
-		if err != nil {
-			fmt.Println(err)
-			return ctrl.Result{}, err
-		}
-	} else {
-
-		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
-
-		err = r.Patch(context.TODO(), &desired, client.Apply, applyOpts...)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
+		//return ctrl.Result{}, err
+		fmt.Println("not found")
+		return &envoyFilter
 	}
 
-	return ctrl.Result{}, nil
+	return &envoyFilter
+
+}
+
+
+func (r *RateLimitReconciler) getConfigMap(name string, namespace string) (v1.ConfigMap, error ) {
+
+	found := v1.ConfigMap{}
+
+
+	err := r.Get(context.TODO(), types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}, &found)
+	if err != nil {
+		//return ctrl.Result{}, err
+		fmt.Println("not found")
+		return found, err
+	}
+
+	return found, nil
+
+
+
 
 }

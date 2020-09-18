@@ -53,7 +53,7 @@ func (r *RateLimitReconciler) deleteEnvoyFilter(envoyFilter istio_v1alpha3.Envoy
 
 }
 
-func (r *RateLimitReconciler) deleteConfigMap(configMapRateLimit v1.ConfigMap ) error {
+func (r *RateLimitReconciler) deleteConfigMap(configMapRateLimit v1.ConfigMap) error {
 
 	err := r.Delete(context.TODO(), &configMapRateLimit)
 	if err != nil {

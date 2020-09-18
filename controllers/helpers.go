@@ -202,11 +202,9 @@ func (r *RateLimitReconciler) getEnvoyFilter(name string, namespace string) *ist
 
 }
 
-
-func (r *RateLimitReconciler) getConfigMap(name string, namespace string) (v1.ConfigMap, error ) {
+func (r *RateLimitReconciler) getConfigMap(name string, namespace string) (v1.ConfigMap, error) {
 
 	found := v1.ConfigMap{}
-
 
 	err := r.Get(context.TODO(), types.NamespacedName{
 		Namespace: namespace,
@@ -219,8 +217,5 @@ func (r *RateLimitReconciler) getConfigMap(name string, namespace string) (v1.Co
 	}
 
 	return found, nil
-
-
-
 
 }

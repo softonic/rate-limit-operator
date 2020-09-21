@@ -104,7 +104,7 @@ spec:
 * workloadselector mean that will set the envoyfilters in the ingressgateway ( you need to have these labels in the ingressgateway deployment )
 
 
-# Diagram
+# Diagram
 
 
 ![Image of operator flow](/docs/diagram.png)

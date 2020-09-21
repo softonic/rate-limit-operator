@@ -62,7 +62,7 @@ type EnvoyFilterObject struct {
 
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits,verbs=get;list;watch;create;update;patch;delete
 
-// +kubebuilder:rbac:groups=networking.softonic.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=*,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.istio.io,resources=envoyfilters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=envoyfilters/status,verbs=get
@@ -104,25 +104,21 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 			err := r.deleteEnvoyFilter(*envoyFilterCluster)
 			if err != nil {
-				fmt.Println("cannot delete envoy filter")
 				return ctrl.Result{}, err
 			}
 
 			err = r.deleteEnvoyFilter(*envoyFilterHTTPFilter)
 			if err != nil {
-				fmt.Println("cannot delete envoy filter")
 				return ctrl.Result{}, err
 			}
 
 			err = r.deleteEnvoyFilter(*envoyFilterHTTPRoute)
 			if err != nil {
-				fmt.Println("cannot delete envoy filter")
 				return ctrl.Result{}, err
 			}
 
 			err = r.deleteConfigMap(configMapRateLimit)
 			if err != nil {
-				fmt.Println("cannot delete config Map")
 				return ctrl.Result{}, err
 			}
 
@@ -135,13 +131,15 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
+	namespace := rateLimitInstance.Spec.TargetRef.Namespace
+	nameVirtualService := rateLimitInstance.Spec.TargetRef.Name
+
 	virtualService := &istio_v1beta1.VirtualService{}
 	err = r.Get(context.TODO(), types.NamespacedName{
-		Namespace: "ratelimitoperatortest",
-		Name:      "vs-test",
+		Namespace: namespace,
+		Name:      nameVirtualService,
 	}, virtualService)
 	if err != nil {
-		fmt.Println(err)
 		return ctrl.Result{}, err
 	}
 
@@ -232,17 +230,14 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	configMapRateLimit, err = r.getConfigMap(baseName, controllerNamespace)
 
 	if err != nil {
-		fmt.Println("could not find the configmap")
 
 		err = r.Create(context.TODO(), &configmapDesired)
 		if err != nil {
-			fmt.Println("could not create the configmap")
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		} else if err != nil {
 			return ctrl.Result{}, err
 		}
 	} else if !reflect.DeepEqual(configmapDesired, found) {
-		fmt.Println("ConfigMap exists but there are not the same")
 
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
 
@@ -252,10 +247,6 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		return ctrl.Result{}, nil
 	}
-
-	// if not delete
-	// read CR's values
-	// update envoyfilter, config (and apply CRC to ratelimit server deploy)
 
 	return ctrl.Result{}, nil
 

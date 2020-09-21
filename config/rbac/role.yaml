@@ -19,6 +19,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - '*'
+  resources:
+  - virtualservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - batch
   resources:
   - envoyfilters/status
@@ -68,15 +80,3 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - networking.softonic.io
-  resources:
-  - virtualservices
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch

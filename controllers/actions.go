@@ -57,7 +57,6 @@ func (r *RateLimitReconciler) deleteConfigMap(configMapRateLimit v1.ConfigMap) e
 
 	err := r.Delete(context.TODO(), &configMapRateLimit)
 	if err != nil {
-		fmt.Println("cannot delete envoy filter")
 		return err
 	}
 

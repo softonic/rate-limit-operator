@@ -193,8 +193,6 @@ func (r *RateLimitReconciler) getEnvoyFilter(name string, namespace string) *ist
 		Name:      name,
 	}, &envoyFilter)
 	if err != nil {
-		//return ctrl.Result{}, err
-		fmt.Println("not found")
 		return &envoyFilter
 	}
 
@@ -211,8 +209,6 @@ func (r *RateLimitReconciler) getConfigMap(name string, namespace string) (v1.Co
 		Name:      name,
 	}, &found)
 	if err != nil {
-		//return ctrl.Result{}, err
-		fmt.Println("not found")
 		return found, err
 	}
 

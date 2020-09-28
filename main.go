@@ -26,6 +26,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
+	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	"github.com/softonic/rate-limit-operator/controllers"
 	// +kubebuilder:scaffold:imports
@@ -41,6 +43,10 @@ func init() {
 
 	_ = networkingv1alpha1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
+
+	_ = istio_v1beta1.AddToScheme(scheme)
+
+	_ = istio_v1alpha3.AddToScheme(scheme)
 }
 
 func main() {

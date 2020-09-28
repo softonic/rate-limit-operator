@@ -14,60 +14,52 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package istio_v1beta1
 
 import (
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-type RateLimitDimension map[string]string
-
-type Dimensions map[string]RateLimitDimension
-
-type DimensionsList []Dimensions
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// RateLimitSpec defines the desired state of RateLimit
-type RateLimitSpec struct {
+// NOTE: This type is used only to have a VirtualService runtime.Object (Istio's is not). we are only interested in
+// Hosts property. This is not going to be used as CR, could be moved somewherelese
+
+// VirtualServiceSpec defines the desired state of VirtualService
+type VirtualServiceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	TargetRef          v1.ObjectReference `json:"targetRef"`
-	DestinationCluster string             `json:"destinationCluster"`
-	Unit               string             `json:"unit"`
-	RequestsPerUnit    uint32             `json:"requestPerUnit"`
-	Dimensions         DimensionsList     `json:"dimensions"`
-	WorkloadSelector   map[string]string  `json:"workloadselector"`
+
+	Hosts []string `json:"hosts,omitempty"`
 }
 
-// RateLimitStatus defines the observed state of RateLimit
-type RateLimitStatus struct {
+// VirtualServiceStatus defines the observed state of VirtualService
+type VirtualServiceStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true
 
-// RateLimit is the Schema for the ratelimits API
-type RateLimit struct {
+// VirtualService is the Schema for the virtualservices API
+type VirtualService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RateLimitSpec   `json:"spec,omitempty"`
-	Status RateLimitStatus `json:"status,omitempty"`
+	Spec   VirtualServiceSpec   `json:"spec,omitempty"`
+	Status VirtualServiceStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// RateLimitList contains a list of RateLimit
-type RateLimitList struct {
+// VirtualServiceList contains a list of VirtualService
+type VirtualServiceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []RateLimit `json:"items"`
+	Items           []VirtualService `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&RateLimit{}, &RateLimitList{})
+	SchemeBuilder.Register(&VirtualService{}, &VirtualServiceList{})
 }

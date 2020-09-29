@@ -11,12 +11,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
+
+	"os"
 )
 
 func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilter, found *istio_v1alpha3.EnvoyFilter, nameEnvoyFilter string) (ctrl.Result, error) {
 
+	controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
+
+
 	err := r.Get(context.TODO(), types.NamespacedName{
-		Namespace: "istio-system",
+		Namespace: controllerNamespace,
 		Name:      nameEnvoyFilter,
 	}, found)
 	if err != nil {

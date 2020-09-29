@@ -43,6 +43,8 @@ spec:
         env:
           - name: ISTIO_NAMESPACE
             value: {{ .Values.istioNamespace }}
+          - name: ADDRESS_RATELIMIT_ENDPOINT
+            value: {{ .Values.addressRatelimitEndpoint }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         name: manager
         resources:

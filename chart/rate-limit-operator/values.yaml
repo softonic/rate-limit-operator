@@ -11,6 +11,8 @@ image:
 
 istioNamespace: "istio-system"
 
+addressRatelimitEndpoint: "istio-system-ratelimit.istio-system.svc.cluster.local"
+
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""

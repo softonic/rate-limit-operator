@@ -40,6 +40,9 @@ spec:
         - /manager
         args:
         - --enable-leader-election
+        env:
+          - name: ISTIO_NAMESPACE
+            value: {{ .Values.istioNamespace }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         name: manager
         resources:

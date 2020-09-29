@@ -40,6 +40,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"os"
 )
 
 // RateLimitReconciler reconciles a RateLimit object
@@ -84,7 +86,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	baseName := req.Name
 
-	controllerNamespace := "istio-system"
+	controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
 
 	finalizer := "ratelimit.networking.softonic.io"
 

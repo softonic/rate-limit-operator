@@ -7,7 +7,6 @@ ARCH ?= amd64
 APP ?= rate-limit-operator
 NAMESPACE ?= rate-limit-operator-system
 RELEASE_NAME ?= rate-limit-operator
-KO_DOCKER_REPO = registry.softonic.io/rate-limit-operator
 REPOSITORY ?= softonic/rate-limit-operator
 
 IMAGE := $(BIN)

@@ -7,7 +7,6 @@
 # rate-limit-operator
 Rate Limit operator for Envoy Proxy
 
-
 # Quick Start
 
 Steps to got Operator working

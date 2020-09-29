@@ -1,0 +1,23 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Helm Chart
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'chart/**'
+
+jobs:
+  push-chart:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: goodsmileduck/helm-push-action@v3.2.4
+      env:
+        SOURCE_DIR: 'chart'
+        CHART_FOLDER: 'rate-limit-operator'
+        CHARTMUSEUM_URL: 'https://charts.softonic.io'
+        CHARTMUSEUM_USER: '${{ secrets.CHARTMUSEUM_USER }}'
+        CHARTMUSEUM_PASSWORD: '${{ secrets.CHARTMUSEUM_PASSWORD }}'

@@ -40,6 +40,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"os"
 )
 
 // RateLimitReconciler reconciles a RateLimit object
@@ -84,7 +86,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	baseName := req.Name
 
-	controllerNamespace := "istio-system"
+	controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
 
 	finalizer := "ratelimit.networking.softonic.io"
 
@@ -147,7 +149,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	nameVhost := firstElementHosts + ":80"
 
-	address := "istio-system-ratelimit.istio-system.svc.cluster.local"
+	address := os.Getenv("ADDRESS_RATELIMIT_ENDPOINT")
 
 	payload := []byte(fmt.Sprintf(`{"connect_timeout": "1.25s", "hosts": [ { "socket_address": { "address": "%s", "port_value": 8081 } } ], "http2_protocol_options": {}, "lb_policy": "ROUND_ROBIN", "name": "rate_limit_service", "type": "STRICT_DNS" }`, address))
 
@@ -162,7 +164,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		ApplyTo:               "CLUSTER",
 		RawConfig:             rawConfigCluster,
 		TypeConfigObjectMatch: "Cluster",
-		ClusterEndpoint:       "istio-system-ratelimit.istio-system.svc.cluster.local",
+		ClusterEndpoint:       address,
 		Labels:                labels,
 	}
 

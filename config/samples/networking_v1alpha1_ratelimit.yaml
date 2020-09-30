@@ -9,7 +9,7 @@ spec:
     apiVersion: "networking.istio.io/v1alpha3"
     kind:       VirtualService
     name:       vs-test
-    namespace:  ratelimitoperatortest
+    namespace:  ratelimittest
   destinationCluster: "outbound|80||chicken-head-nginx.chicken-head.svc.cluster.local"
   unit: seconds
   requestPerUnit: 100

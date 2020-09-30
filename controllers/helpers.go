@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
+	"k8s.io/klog"
 
 	"context"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,8 +43,7 @@ func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1al
 
 	for _, dimension := range rateLimitInstance.Spec.Dimensions {
 		// we assume the second dimension is always destination_cluster
-		for k, ratelimitdimension := range dimension {
-			fmt.Printf("%s -> %s\n", k, ratelimitdimension)
+		for _, ratelimitdimension := range dimension {
 			for n, dimensionKey := range ratelimitdimension {
 				if n == "descriptor_key" {
 					configyaml = ConfigMaptoYAML{
@@ -193,6 +192,7 @@ func (r *RateLimitReconciler) getEnvoyFilter(name string, namespace string) *ist
 		Name:      name,
 	}, &envoyFilter)
 	if err != nil {
+		klog.Errorf("Cannot Found EnvoyFilter %s. Error %v", envoyFilter.Name, err)
 		return &envoyFilter
 	}
 
@@ -209,6 +209,7 @@ func (r *RateLimitReconciler) getConfigMap(name string, namespace string) (v1.Co
 		Name:      name,
 	}, &found)
 	if err != nil {
+		klog.Errorf("Cannot Found configMap %s. Error %v", found.Name, err)
 		return found, err
 	}
 

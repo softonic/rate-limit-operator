@@ -42,6 +42,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"os"
+
+	"k8s.io/klog"
 )
 
 // RateLimitReconciler reconciles a RateLimit object
@@ -81,6 +83,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	err := r.Get(context.TODO(), req.NamespacedName, rateLimitInstance)
 	if err != nil {
+		klog.Errorf("Cannot get Ratelimit CR %s. Error %v", rateLimitInstance.Name, err)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 

@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"fmt"
+	"k8s.io/klog"
 
 	"context"
 
@@ -25,10 +25,10 @@ func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilte
 		Name:      nameEnvoyFilter,
 	}, found)
 	if err != nil {
-		fmt.Println(err)
+		klog.Errorf("Cannot Found EnvoyFilter %s. Error %v", found.Name, err)
 		err = r.Create(context.TODO(), &desired)
 		if err != nil {
-			fmt.Println(err)
+			klog.Errorf("Cannot Create EnvoyFilter %s. Error %v", desired.Name, err)
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -37,6 +37,7 @@ func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilte
 
 		err = r.Patch(context.TODO(), &desired, client.Apply, applyOpts...)
 		if err != nil {
+			klog.Errorf("Cannot Patch EnvoyFilter %s. Error %v", desired.Name, err)
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -50,7 +51,7 @@ func (r *RateLimitReconciler) deleteEnvoyFilter(envoyFilter istio_v1alpha3.Envoy
 
 	err := r.Delete(context.TODO(), &envoyFilter)
 	if err != nil {
-		fmt.Println("cannot delete envoy filter")
+		klog.Errorf("Cannot delete EnvoyFilter %s. Error %v",envoyFilter.Name , err)
 		return err
 	}
 
@@ -62,6 +63,7 @@ func (r *RateLimitReconciler) deleteConfigMap(configMapRateLimit v1.ConfigMap) e
 
 	err := r.Delete(context.TODO(), &configMapRateLimit)
 	if err != nil {
+		klog.Errorf("Cannot delete ConfigMap %s. Error %v",configMapRateLimit.Name , err)
 		return err
 	}
 

@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"github.com/imdario/mergo"
 
 	"github.com/go-logr/logr"
 
@@ -36,6 +37,7 @@ import (
 	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
+	apps "k8s.io/api/apps/v1"
 	_ "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -225,7 +227,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return result, err
 	}
 
-	configmapDesired, err := r.desiredConfigMap(rateLimitInstance, controllerNamespace, baseName)
+	configmapDesired, err := r.createDesiredConfigMap(rateLimitInstance, controllerNamespace, baseName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -252,6 +254,100 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		return ctrl.Result{}, nil
 	}
+
+	// Patch deployment
+
+	var defaultMode int32
+
+	p := &defaultMode
+
+	deploySpec := apps.DeploymentSpec{
+			Template: v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Volumes: []v1.Volume{
+						{
+							Name:         "commonconfig-volume",
+							VolumeSource:  v1.VolumeSource{
+								Projected: &v1.ProjectedVolumeSource{
+									DefaultMode: p,
+									Sources: []v1.VolumeProjection{
+										{
+											ConfigMap: &v1.ConfigMapProjection{
+												LocalObjectReference: v1.LocalObjectReference{
+													Name: "ddd",
+												},
+											},
+										},
+										{
+											ConfigMap: &v1.ConfigMapProjection{
+												LocalObjectReference: v1.LocalObjectReference{
+													Name: "ddd",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+	}
+
+	deploymentSpec := &apps.DeploymentSpec{}
+
+	result1 := apps.DeploymentSpec{}
+	mergo.Merge(result1, deploySpec, mergo.WithOverride)
+
+	mergo.Merge(result1, deploymentSpec, mergo.WithOverride)
+
+
+
+	// Generate DeploymentSpec with volumes depending on the configMap, for each CM will be a volume
+
+	// Merge DeploymentSpec against deploymentSpec ( overrides..etc )
+
+	// Patch or merge with the deployment istio-ratelimit
+
+	//var defaultMode int32
+	//
+	//p := &defaultMode
+
+	/*deploy := &apps.Deployment{
+		Spec: apps.DeploymentSpec{
+			Template: v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Volumes: []v1.Volume{
+						{
+							Name:         "commonconfig-volume",
+							VolumeSource:  v1.VolumeSource{
+								Projected: &v1.ProjectedVolumeSource{
+									DefaultMode: p,
+									Sources: []v1.VolumeProjection{
+										{
+											ConfigMap: &v1.ConfigMapProjection{
+												LocalObjectReference: v1.LocalObjectReference{
+													Name: "ddd",
+												},
+											},
+										},
+										{
+											ConfigMap: &v1.ConfigMapProjection{
+												LocalObjectReference: v1.LocalObjectReference{
+													Name: "ddd",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}*/
+
 
 	return ctrl.Result{}, nil
 

@@ -1,6 +1,9 @@
 package controllers
 
 import (
+	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
+	"gopkg.in/yaml.v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 
 	"context"
@@ -56,6 +59,62 @@ func (r *RateLimitReconciler) deleteEnvoyFilter(envoyFilter istio_v1alpha3.Envoy
 	}
 
 	return nil
+
+}
+
+func (r *RateLimitReconciler) createDesiredConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, desiredNamespace string, name string) (v1.ConfigMap, error) {
+
+	configMapData := make(map[string]string)
+
+	configyaml := ConfigMaptoYAML{}
+
+	for _, dimension := range rateLimitInstance.Spec.Dimensions {
+		// we assume the second dimension is always destination_cluster
+		for _, ratelimitdimension := range dimension {
+			for n, dimensionKey := range ratelimitdimension {
+				if n == "descriptor_key" {
+					configyaml = ConfigMaptoYAML{
+						DescriptorsParent: []DescriptorsParent{
+							{
+								Descriptors: []Descriptors{
+									{
+										Key:   "destination_cluster",
+										Value: rateLimitInstance.Spec.DestinationCluster,
+										RateLimit: RateLimitDescriptor{
+											RequestsPerUnit: rateLimitInstance.Spec.RequestsPerUnit,
+											Unit:            rateLimitInstance.Spec.Unit,
+										},
+									},
+								},
+								Key: dimensionKey,
+							},
+						},
+						Domain: name,
+					}
+				}
+			}
+		}
+	}
+
+	configYamlFile, _ := yaml.Marshal(&configyaml)
+
+	fileName := name + ".yaml"
+
+	configMapData[fileName] = string(configYamlFile)
+
+	configMap := v1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: desiredNamespace,
+		},
+		Data: configMapData,
+	}
+
+	return configMap, nil
 
 }
 

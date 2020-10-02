@@ -17,9 +17,13 @@ limitations under the License.
 package controllers
 
 import (
+	// "github.com/imdario/mergo"
+	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// "knative.dev/pkg/apis/duck"
+
 	"context"
 	"encoding/json"
-	"github.com/imdario/mergo"
+	//"github.com/imdario/mergo"
 
 	"github.com/go-logr/logr"
 
@@ -37,7 +41,6 @@ import (
 	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
-	apps "k8s.io/api/apps/v1"
 	_ "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -85,13 +88,15 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	err := r.Get(context.TODO(), req.NamespacedName, rateLimitInstance)
 	if err != nil {
-		klog.Errorf("Cannot get Ratelimit CR %s. Error %v", rateLimitInstance.Name, err)
+		klog.Infof("Cannot get Ratelimit CR %s. Error %v", rateLimitInstance.Name, err)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	baseName := req.Name
 
-	controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
+	// controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
+
+	controllerNamespace := "istio-system"
 
 	finalizer := "ratelimit.networking.softonic.io"
 
@@ -177,7 +182,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	envoyFilterCluster = &istio_v1alpha3.EnvoyFilter{}
 
-	result, err := r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, baseName+"-cluster")
+	result, err := r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, baseName+"-cluster", controllerNamespace)
 	if err != nil {
 		return result, err
 	}
@@ -201,7 +206,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	envoyFilterHTTPFilter = &istio_v1alpha3.EnvoyFilter{}
 
-	result, err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, baseName+"-envoy-filter")
+	result, err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, baseName+"-envoy-filter", controllerNamespace)
 	if err != nil {
 		return result, err
 	}
@@ -222,7 +227,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	envoyFilterHTTPRoute = &istio_v1alpha3.EnvoyFilter{}
 
-	result, err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, baseName+"-route")
+	result, err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, baseName+"-route", controllerNamespace)
 	if err != nil {
 		return result, err
 	}
@@ -241,9 +246,9 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		err = r.Create(context.TODO(), &configmapDesired)
 		if err != nil {
 			return ctrl.Result{}, client.IgnoreNotFound(err)
-		} else if err != nil {
+		} /*else if err != nil {
 			return ctrl.Result{}, err
-		}
+		}*/
 	} else if !reflect.DeepEqual(configmapDesired, found) {
 
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
@@ -252,102 +257,33 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, nil
 	}
 
-	// Patch deployment
+	// Update deployment with configmap values
 
-	var defaultMode int32
+	volumes := constructVolumes("commonconfig-volume", baseName)
 
-	p := &defaultMode
+	sources := constructVolumeSources(baseName)
 
-	deploySpec := apps.DeploymentSpec{
-			Template: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
-						{
-							Name:         "commonconfig-volume",
-							VolumeSource:  v1.VolumeSource{
-								Projected: &v1.ProjectedVolumeSource{
-									DefaultMode: p,
-									Sources: []v1.VolumeProjection{
-										{
-											ConfigMap: &v1.ConfigMapProjection{
-												LocalObjectReference: v1.LocalObjectReference{
-													Name: "ddd",
-												},
-											},
-										},
-										{
-											ConfigMap: &v1.ConfigMapProjection{
-												LocalObjectReference: v1.LocalObjectReference{
-													Name: "ddd",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+	deploy, err := r.getDeployment("rate-limit-operator-system", "istio-system-ratelimit")
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	deploymentSpec := &apps.DeploymentSpec{}
+	for _, v := range deploy.Spec.Template.Spec.Volumes {
+		if v.Name == "commonconfig-volume" {
+			v.VolumeSource.Projected.Sources = append(v.VolumeSource.Projected.Sources, sources...)
+		} else {
+			deploy.Spec.Template.Spec.Volumes = append(deploy.Spec.Template.Spec.Volumes, volumes...)
 
-	result1 := apps.DeploymentSpec{}
-	mergo.Merge(result1, deploySpec, mergo.WithOverride)
+		}
+	}
 
-	mergo.Merge(result1, deploymentSpec, mergo.WithOverride)
-
-
-
-	// Generate DeploymentSpec with volumes depending on the configMap, for each CM will be a volume
-
-	// Merge DeploymentSpec against deploymentSpec ( overrides..etc )
-
-	// Patch or merge with the deployment istio-ratelimit
-
-	//var defaultMode int32
-	//
-	//p := &defaultMode
-
-	/*deploy := &apps.Deployment{
-		Spec: apps.DeploymentSpec{
-			Template: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
-						{
-							Name:         "commonconfig-volume",
-							VolumeSource:  v1.VolumeSource{
-								Projected: &v1.ProjectedVolumeSource{
-									DefaultMode: p,
-									Sources: []v1.VolumeProjection{
-										{
-											ConfigMap: &v1.ConfigMapProjection{
-												LocalObjectReference: v1.LocalObjectReference{
-													Name: "ddd",
-												},
-											},
-										},
-										{
-											ConfigMap: &v1.ConfigMapProjection{
-												LocalObjectReference: v1.LocalObjectReference{
-													Name: "ddd",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}*/
-
+	err = r.Update(context.TODO(), deploy)
+	if err != nil {
+		klog.Infof("Cannot Update Deployment %s. Error %v", "istio-system-ratelimit", err)
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 

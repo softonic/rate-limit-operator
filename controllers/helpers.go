@@ -1,15 +1,17 @@
 package controllers
 
 import (
-	"encoding/json"
-	"k8s.io/klog"
-
 	"context"
+	"encoding/json"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	apps "k8s.io/api/apps/v1"
 )
 
 type RateLimitDescriptor struct {
@@ -32,8 +34,6 @@ type ConfigMaptoYAML struct {
 	DescriptorsParent []DescriptorsParent `yaml:"descriptors"`
 	Domain            string              `yaml:"domain"`
 }
-
-
 
 func getConfigObjectMatch(typeConfigObjectMatch string, operation string, clusterEndpoint string, context string, nameVhost string) istio_v1alpha3.EnvoyConfigObjectMatch {
 
@@ -136,7 +136,7 @@ func (r *RateLimitReconciler) getEnvoyFilter(name string, namespace string) *ist
 		Name:      name,
 	}, &envoyFilter)
 	if err != nil {
-		klog.Errorf("Cannot Found EnvoyFilter %s. Error %v", envoyFilter.Name, err)
+		klog.Infof("Cannot Found EnvoyFilter %s. Error %v", envoyFilter.Name, err)
 		return &envoyFilter
 	}
 
@@ -153,10 +153,64 @@ func (r *RateLimitReconciler) getConfigMap(name string, namespace string) (v1.Co
 		Name:      name,
 	}, &found)
 	if err != nil {
-		klog.Errorf("Cannot Found configMap %s. Error %v", found.Name, err)
+		klog.Infof("Cannot Found configMap %s. Error %v", found.Name, err)
 		return found, err
 	}
 
 	return found, nil
 
+}
+
+func constructVolumeSources(name string) []v1.VolumeProjection {
+
+	sources := []v1.VolumeProjection{
+		{
+			ConfigMap: &v1.ConfigMapProjection{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: name,
+				},
+			},
+		},
+	}
+
+	return sources
+}
+
+func constructVolumes(nameVolume string, nameVolumeSource string) []v1.Volume {
+
+	var defaultMode int32
+
+	defaultMode = 0420
+
+	p := &defaultMode
+
+	sources := constructVolumeSources(nameVolumeSource)
+
+	Volumes := []v1.Volume{
+		{
+			Name: nameVolume,
+			VolumeSource: v1.VolumeSource{
+				Projected: &v1.ProjectedVolumeSource{
+					DefaultMode: p,
+					Sources:     sources,
+				},
+			},
+		},
+	}
+
+	return Volumes
+}
+
+func (r *RateLimitReconciler) getDeployment(namespace string, name string) (*apps.Deployment, error) {
+
+	deploy := &apps.Deployment{}
+	err := r.Get(context.TODO(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, deploy)
+	if err != nil {
+		klog.Infof("Cannot Get Deployment %s. Error %v", "istio-system-ratelimit", err)
+		return nil, err
+	}
+	return deploy, nil
 }

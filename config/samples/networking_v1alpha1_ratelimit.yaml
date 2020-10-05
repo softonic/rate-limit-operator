@@ -2,6 +2,7 @@ apiVersion: networking.softonic.io/v1alpha1
 kind: RateLimit
 metadata:
   name: ratelimit-sample
+  namespace: ratelimitoperatortest
   finalizers:
   - ratelimit.networking.softonic.io
 spec:
@@ -9,7 +10,7 @@ spec:
     apiVersion: "networking.istio.io/v1alpha3"
     kind:       VirtualService
     name:       vs-test
-    namespace:  ratelimittest
+    namespace:  ratelimitoperatortest
   destinationCluster: "outbound|80||chicken-head-nginx.chicken-head.svc.cluster.local"
   unit: seconds
   requestPerUnit: 100

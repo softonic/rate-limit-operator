@@ -1,17 +1,17 @@
 package controllers
 
 import (
-	"encoding/json"
-	"k8s.io/klog"
-
 	"context"
+	"encoding/json"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
-	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
-	"gopkg.in/yaml.v2"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 type RateLimitDescriptor struct {
@@ -33,62 +33,6 @@ type DescriptorsParent struct {
 type ConfigMaptoYAML struct {
 	DescriptorsParent []DescriptorsParent `yaml:"descriptors"`
 	Domain            string              `yaml:"domain"`
-}
-
-func (r *RateLimitReconciler) desiredConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, desiredNamespace string, name string) (v1.ConfigMap, error) {
-
-	configMapData := make(map[string]string)
-
-	configyaml := ConfigMaptoYAML{}
-
-	for _, dimension := range rateLimitInstance.Spec.Dimensions {
-		// we assume the second dimension is always destination_cluster
-		for _, ratelimitdimension := range dimension {
-			for n, dimensionKey := range ratelimitdimension {
-				if n == "descriptor_key" {
-					configyaml = ConfigMaptoYAML{
-						DescriptorsParent: []DescriptorsParent{
-							{
-								Descriptors: []Descriptors{
-									{
-										Key:   "destination_cluster",
-										Value: rateLimitInstance.Spec.DestinationCluster,
-										RateLimit: RateLimitDescriptor{
-											RequestsPerUnit: rateLimitInstance.Spec.RequestsPerUnit,
-											Unit:            rateLimitInstance.Spec.Unit,
-										},
-									},
-								},
-								Key: dimensionKey,
-							},
-						},
-						Domain: name,
-					}
-				}
-			}
-		}
-	}
-
-	configYamlFile, _ := yaml.Marshal(&configyaml)
-
-	fileName := name + ".yaml"
-
-	configMapData[fileName] = string(configYamlFile)
-
-	configMap := v1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: desiredNamespace,
-		},
-		Data: configMapData,
-	}
-
-	return configMap, nil
-
 }
 
 func getConfigObjectMatch(typeConfigObjectMatch string, operation string, clusterEndpoint string, context string, nameVhost string) istio_v1alpha3.EnvoyConfigObjectMatch {
@@ -192,7 +136,7 @@ func (r *RateLimitReconciler) getEnvoyFilter(name string, namespace string) *ist
 		Name:      name,
 	}, &envoyFilter)
 	if err != nil {
-		klog.Errorf("Cannot Found EnvoyFilter %s. Error %v", envoyFilter.Name, err)
+		klog.Infof("Cannot Found EnvoyFilter %s. Error %v", envoyFilter.Name, err)
 		return &envoyFilter
 	}
 
@@ -209,10 +153,64 @@ func (r *RateLimitReconciler) getConfigMap(name string, namespace string) (v1.Co
 		Name:      name,
 	}, &found)
 	if err != nil {
-		klog.Errorf("Cannot Found configMap %s. Error %v", found.Name, err)
+		klog.Infof("Cannot Found configMap %s. Error %v", found.Name, err)
 		return found, err
 	}
 
 	return found, nil
 
+}
+
+func constructVolumeSources(name string) []v1.VolumeProjection {
+
+	sources := []v1.VolumeProjection{
+		{
+			ConfigMap: &v1.ConfigMapProjection{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: name,
+				},
+			},
+		},
+	}
+
+	return sources
+}
+
+func constructVolumes(nameVolume string, nameVolumeSource string) []v1.Volume {
+
+	var defaultMode int32
+
+	defaultMode = 0420
+
+	p := &defaultMode
+
+	sources := constructVolumeSources(nameVolumeSource)
+
+	Volumes := []v1.Volume{
+		{
+			Name: nameVolume,
+			VolumeSource: v1.VolumeSource{
+				Projected: &v1.ProjectedVolumeSource{
+					DefaultMode: p,
+					Sources:     sources,
+				},
+			},
+		},
+	}
+
+	return Volumes
+}
+
+func (r *RateLimitReconciler) getDeployment(namespace string, name string) (*appsv1.Deployment, error) {
+
+	deploy := &appsv1.Deployment{}
+	err := r.Get(context.TODO(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, deploy)
+	if err != nil {
+		klog.Infof("Cannot Get Deployment %s. Error %v", "istio-system-ratelimit", err)
+		return nil, err
+	}
+	return deploy, nil
 }

@@ -17,8 +17,16 @@ limitations under the License.
 package controllers
 
 import (
+	// "github.com/imdario/mergo"
+	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// "knative.dev/pkg/apis/duck"
+
 	"context"
 	"encoding/json"
+
+	appsv1 "k8s.io/api/apps/v1"
+
+	//"github.com/imdario/mergo"
 
 	"github.com/go-logr/logr"
 
@@ -83,13 +91,15 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	err := r.Get(context.TODO(), req.NamespacedName, rateLimitInstance)
 	if err != nil {
-		klog.Errorf("Cannot get Ratelimit CR %s. Error %v", rateLimitInstance.Name, err)
+		klog.Infof("Cannot get Ratelimit CR %s. Error %v", rateLimitInstance.Name, err)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	baseName := req.Name
 
-	controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
+	// controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
+
+	controllerNamespace := "istio-system"
 
 	finalizer := "ratelimit.networking.softonic.io"
 
@@ -102,6 +112,17 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	envoyFilterHTTPRoute := r.getEnvoyFilter(baseName+"-route", controllerNamespace)
 
 	configMapRateLimit, err := r.getConfigMap(baseName, controllerNamespace)
+
+	volumes := constructVolumes("commonconfig-volume", baseName)
+
+	sources := constructVolumeSources(baseName)
+
+	var deploy *appsv1.Deployment
+
+	deploy, err = r.getDeployment("rate-limit-operator-system", "istio-system-ratelimit")
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	if beingDeleted {
 
@@ -124,6 +145,18 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 			err = r.deleteConfigMap(configMapRateLimit)
 			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			err = r.removeVolumeFromDeployment(deploy, sources, volumes)
+			if err != nil {
+				klog.Infof("Cannot remove VolumeSource from deploy %v. Error %v", deploy, err)
+				return ctrl.Result{}, err
+			}
+
+			err = r.Update(context.TODO(), deploy)
+			if err != nil {
+				klog.Infof("Cannot Update Deployment %s. Error %v", "istio-system-ratelimit", err)
 				return ctrl.Result{}, err
 			}
 
@@ -175,7 +208,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	envoyFilterCluster = &istio_v1alpha3.EnvoyFilter{}
 
-	result, err := r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, baseName+"-cluster")
+	result, err := r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, baseName+"-cluster", controllerNamespace)
 	if err != nil {
 		return result, err
 	}
@@ -199,7 +232,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	envoyFilterHTTPFilter = &istio_v1alpha3.EnvoyFilter{}
 
-	result, err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, baseName+"-envoy-filter")
+	result, err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, baseName+"-envoy-filter", controllerNamespace)
 	if err != nil {
 		return result, err
 	}
@@ -220,12 +253,12 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	envoyFilterHTTPRoute = &istio_v1alpha3.EnvoyFilter{}
 
-	result, err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, baseName+"-route")
+	result, err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, baseName+"-route", controllerNamespace)
 	if err != nil {
 		return result, err
 	}
 
-	configmapDesired, err := r.desiredConfigMap(rateLimitInstance, controllerNamespace, baseName)
+	configmapDesired, err := r.createDesiredConfigMap(rateLimitInstance, controllerNamespace, baseName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -238,9 +271,8 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		err = r.Create(context.TODO(), &configmapDesired)
 		if err != nil {
-			return ctrl.Result{}, client.IgnoreNotFound(err)
-		} else if err != nil {
-			return ctrl.Result{}, err
+			//return ctrl.Result{}, client.IgnoreNotFound(err)
+			klog.Infof("Cannot create %v, Error: %v", configmapDesired, err)
 		}
 	} else if !reflect.DeepEqual(configmapDesired, found) {
 
@@ -250,7 +282,22 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, nil
+	}
+
+	// Update deployment with configmap values
+
+	err = r.addVolumeFromDeployment(deploy, sources, volumes)
+	if err != nil {
+		klog.Infof("Cannot add VolumeSource from deploy %v. Error %v", deploy, err)
+		return ctrl.Result{}, err
+	}
+
+	klog.Infof("This will be the deployment to update %v", deploy)
+
+	err = r.Update(context.TODO(), deploy)
+	if err != nil {
+		klog.Infof("Cannot Update Deployment %s. Error %v", "istio-system-ratelimit", err)
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

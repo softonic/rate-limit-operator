@@ -11,7 +11,7 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	apps "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 type RateLimitDescriptor struct {
@@ -201,9 +201,9 @@ func constructVolumes(nameVolume string, nameVolumeSource string) []v1.Volume {
 	return Volumes
 }
 
-func (r *RateLimitReconciler) getDeployment(namespace string, name string) (*apps.Deployment, error) {
+func (r *RateLimitReconciler) getDeployment(namespace string, name string) (*appsv1.Deployment, error) {
 
-	deploy := &apps.Deployment{}
+	deploy := &appsv1.Deployment{}
 	err := r.Get(context.TODO(), client.ObjectKey{
 		Namespace: namespace,
 		Name:      name,

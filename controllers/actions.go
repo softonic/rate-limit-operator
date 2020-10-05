@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"fmt"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	"gopkg.in/yaml.v2"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 
@@ -119,6 +121,68 @@ func (r *RateLimitReconciler) deleteConfigMap(configMapRateLimit v1.ConfigMap) e
 	if err != nil {
 		klog.Infof("Cannot delete ConfigMap %s. Error %v", configMapRateLimit.Name, err)
 		return err
+	}
+
+	return nil
+
+}
+
+func (r *RateLimitReconciler) removeVolumeFromDeployment(deploy *appsv1.Deployment, sources []v1.VolumeProjection, volumes []v1.Volume) error {
+
+	for _, v := range deploy.Spec.Template.Spec.Volumes {
+		if v.Name == "commonconfig-volume" && len(v.VolumeSource.Projected.Sources) > 1 {
+			i := 0
+			for _, n := range v.VolumeSource.Projected.Sources {
+				fmt.Println("this is the first element of the sources", n)
+				for _, p := range sources {
+					if n.ConfigMap.Name == p.ConfigMap.Name {
+						fmt.Println("Match with an element")
+					} else {
+						v.VolumeSource.Projected.Sources[i] = n
+						i++
+					}
+				}
+			}
+			v.VolumeSource.Projected.Sources = v.VolumeSource.Projected.Sources[:i]
+		} else if v.Name == "commonconfig-volume" && len(v.VolumeSource.Projected.Sources) == 1 {
+			fmt.Println("remove volumes and volumemounts", v.Name)
+			deploy.Spec.Template.Spec.Volumes = nil
+			deploy.Spec.Template.Spec.Containers[0].VolumeMounts = nil
+		}
+	}
+
+	return nil
+
+}
+
+func (r *RateLimitReconciler) addVolumeFromDeployment(deploy *appsv1.Deployment, sources []v1.VolumeProjection, volumes []v1.Volume) error {
+
+	defaultVolumeMount := []v1.VolumeMount{
+		{
+			Name:      "commonconfig-volume",
+			MountPath: "/data/ratelimit/config",
+		},
+	}
+
+	if len(deploy.Spec.Template.Spec.Volumes) == 0 {
+		deploy.Spec.Template.Spec.Volumes = append(deploy.Spec.Template.Spec.Volumes, volumes...)
+		deploy.Spec.Template.Spec.Containers[0].VolumeMounts = defaultVolumeMount
+		return nil
+	}
+
+	count := 0
+	for _, v := range deploy.Spec.Template.Spec.Volumes {
+		if v.Name == "commonconfig-volume" {
+			v.VolumeSource.Projected.Sources = append(v.VolumeSource.Projected.Sources, sources...)
+		} else {
+			count++
+			//deploy.Spec.Template.Spec.Volumes = append(deploy.Spec.Template.Spec.Volumes, volumes...)
+		}
+	}
+
+	if count > 0 {
+		deploy.Spec.Template.Spec.Volumes = append(deploy.Spec.Template.Spec.Volumes, volumes...)
+		deploy.Spec.Template.Spec.Containers[0].VolumeMounts = append(deploy.Spec.Template.Spec.Containers[0].VolumeMounts, defaultVolumeMount...)
 	}
 
 	return nil

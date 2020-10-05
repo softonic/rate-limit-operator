@@ -17,6 +17,7 @@ require (
 	k8s.io/code-generator v0.18.8
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
+	k8s.io/kubernetes v1.14.7
 	knative.dev/pkg v0.0.0-20200911235400-de640e81d149
 	knative.dev/test-infra v0.0.0-20200911201000-3f90e7c8f2fa
 	sigs.k8s.io/controller-runtime v0.6.1

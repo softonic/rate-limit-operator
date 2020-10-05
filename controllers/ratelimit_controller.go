@@ -23,6 +23,9 @@ import (
 
 	"context"
 	"encoding/json"
+
+	appsv1 "k8s.io/api/apps/v1"
+
 	//"github.com/imdario/mergo"
 
 	"github.com/go-logr/logr"
@@ -110,6 +113,17 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	configMapRateLimit, err := r.getConfigMap(baseName, controllerNamespace)
 
+	volumes := constructVolumes("commonconfig-volume", baseName)
+
+	sources := constructVolumeSources(baseName)
+
+	var deploy *appsv1.Deployment
+
+	deploy, err = r.getDeployment("rate-limit-operator-system", "istio-system-ratelimit")
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if beingDeleted {
 
 		if containsString(rateLimitInstance.GetFinalizers(), finalizer) {
@@ -131,6 +145,18 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 			err = r.deleteConfigMap(configMapRateLimit)
 			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			err = r.removeVolumeFromDeployment(deploy, sources, volumes)
+			if err != nil {
+				klog.Infof("Cannot remove VolumeSource from deploy %v. Error %v", deploy, err)
+				return ctrl.Result{}, err
+			}
+
+			err = r.Update(context.TODO(), deploy)
+			if err != nil {
+				klog.Infof("Cannot Update Deployment %s. Error %v", "istio-system-ratelimit", err)
 				return ctrl.Result{}, err
 			}
 
@@ -245,10 +271,9 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		err = r.Create(context.TODO(), &configmapDesired)
 		if err != nil {
-			return ctrl.Result{}, client.IgnoreNotFound(err)
-		} /*else if err != nil {
-			return ctrl.Result{}, err
-		}*/
+			//return ctrl.Result{}, client.IgnoreNotFound(err)
+			klog.Infof("Cannot create %v, Error: %v", configmapDesired, err)
+		}
 	} else if !reflect.DeepEqual(configmapDesired, found) {
 
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
@@ -261,23 +286,13 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// Update deployment with configmap values
 
-	volumes := constructVolumes("commonconfig-volume", baseName)
-
-	sources := constructVolumeSources(baseName)
-
-	deploy, err := r.getDeployment("rate-limit-operator-system", "istio-system-ratelimit")
+	err = r.addVolumeFromDeployment(deploy, sources, volumes)
 	if err != nil {
+		klog.Infof("Cannot add VolumeSource from deploy %v. Error %v", deploy, err)
 		return ctrl.Result{}, err
 	}
 
-	for _, v := range deploy.Spec.Template.Spec.Volumes {
-		if v.Name == "commonconfig-volume" {
-			v.VolumeSource.Projected.Sources = append(v.VolumeSource.Projected.Sources, sources...)
-		} else {
-			deploy.Spec.Template.Spec.Volumes = append(deploy.Spec.Template.Spec.Volumes, volumes...)
-
-		}
-	}
+	klog.Infof("This will be the deployment to update %v", deploy)
 
 	err = r.Update(context.TODO(), deploy)
 	if err != nil {

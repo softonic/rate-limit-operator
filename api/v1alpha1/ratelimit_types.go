@@ -21,9 +21,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type RateLimitDimension map[string]string
 
-type Dimensions map[string]RateLimitDimension
+
+//type RateLimitDimension map[string]string
+
+//type Dimensions map[string]RateLimitDimension
+
+type RateLimitS struct {
+	RequestsPerUnit int    `yaml:"requests_per_unit"`
+	Unit            string `yaml:"unit"`
+}
+
+type Descriptors struct {
+	Key string `yaml:"key"`
+	ratelimits RateLimitS `yaml:"rate_limit"`
+	Value string `yaml:"value"`
+}
+
+type Dimensions struct {
+	Key string 	`yaml:"key"`
+	Descriptor []Descriptors `yaml:"descriptors"`
+}
 
 type DimensionsList []Dimensions
 
@@ -35,9 +53,9 @@ type RateLimitSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	TargetRef          v1.ObjectReference `json:"targetRef"`
-	DestinationCluster string             `json:"destinationCluster"`
-	Unit               string             `json:"unit"`
-	RequestsPerUnit    uint32             `json:"requestPerUnit"`
+	//DestinationCluster string             `json:"destinationCluster"`
+	//Unit               string             `json:"unit"`
+	//RequestsPerUnit    uint32             `json:"requestPerUnit"`
 	Dimensions         DimensionsList     `json:"dimensions"`
 	WorkloadSelector   map[string]string  `json:"workloadselector"`
 }

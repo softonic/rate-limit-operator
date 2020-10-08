@@ -66,7 +66,25 @@ func (r *RateLimitReconciler) createDesiredConfigMap(rateLimitInstance *networki
 	configyaml := ConfigMaptoYAML{}
 
 	for _, dimension := range rateLimitInstance.Spec.Dimensions {
+		configyaml = ConfigMaptoYAML{
+			DescriptorsParent: []DescriptorsParent{
+				{
+					Key: dimension.Key,
+					Descriptors: []Descriptors{
+						{
+							Value:      "",
+							ratelimits: RateLimitS{},
+						},
+					},
+				},
+			},
+			Domain: name,
+		}
+	}
+
+	/*for _, dimension := range rateLimitInstance.Spec.Dimensions {
 		// we assume the second dimension is always destination_cluster
+
 		for _, ratelimitdimension := range dimension {
 			for n, dimensionKey := range ratelimitdimension {
 				if n == "descriptor_key" {
@@ -91,7 +109,7 @@ func (r *RateLimitReconciler) createDesiredConfigMap(rateLimitInstance *networki
 				}
 			}
 		}
-	}
+	}*/
 
 	configYamlFile, _ := yaml.Marshal(&configyaml)
 

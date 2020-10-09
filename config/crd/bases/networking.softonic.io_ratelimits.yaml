@@ -36,19 +36,59 @@ spec:
           spec:
             description: RateLimitSpec defines the desired state of RateLimit
             properties:
-              destinationCluster:
-                type: string
               dimensions:
+                description: DestinationCluster string             `json:"destinationCluster"`
+                  Unit               string             `json:"unit"` RequestsPerUnit    uint32             `json:"requestPerUnit"`
                 items:
-                  additionalProperties:
-                    additionalProperties:
+                  properties:
+                    actions:
+                      items:
+                        properties:
+                          destination_cluster:
+                            type: object
+                          request_headers:
+                            properties:
+                              descriptor_key:
+                                type: string
+                              header_name:
+                                type: string
+                            required:
+                            - descriptor_key
+                            - header_name
+                            type: object
+                        type: object
+                      type: array
+                    descriptors:
+                      items:
+                        properties:
+                          key:
+                            type: string
+                          rate_limit:
+                            properties:
+                              requests_per_unit:
+                                type: integer
+                              unit:
+                                type: string
+                            required:
+                            - requests_per_unit
+                            - unit
+                            type: object
+                          value:
+                            type: string
+                        required:
+                        - key
+                        - rate_limit
+                        - value
+                        type: object
+                      type: array
+                    key:
                       type: string
-                    type: object
+                  required:
+                  - actions
+                  - descriptors
+                  - key
                   type: object
                 type: array
-              requestPerUnit:
-                format: int32
-                type: integer
               targetRef:
                 description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                   Important: Run "make" to regenerate code after modifying this file'
@@ -86,18 +126,13 @@ spec:
                     description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                     type: string
                 type: object
-              unit:
-                type: string
               workloadselector:
                 additionalProperties:
                   type: string
                 type: object
             required:
-            - destinationCluster
             - dimensions
-            - requestPerUnit
             - targetRef
-            - unit
             - workloadselector
             type: object
           status:

@@ -1,9 +1,10 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/ghodss/yaml"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
-	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
@@ -16,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
+	//"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilter, found *istio_v1alpha3.EnvoyFilter, nameEnvoyFilter string, controllerNamespace string) (ctrl.Result, error) {
@@ -63,59 +65,22 @@ func (r *RateLimitReconciler) createDesiredConfigMap(rateLimitInstance *networki
 
 	configMapData := make(map[string]string)
 
-	configyaml := ConfigMaptoYAML{}
+	var output []byte
+
+	var descriptorOutput []networkingv1alpha1.Descriptors
 
 	for _, dimension := range rateLimitInstance.Spec.Dimensions {
-		configyaml = ConfigMaptoYAML{
-			DescriptorsParent: []DescriptorsParent{
-				{
-					Key: dimension.Key,
-					Descriptors: []Descriptors{
-						{
-							Value:      "",
-							ratelimits: RateLimitS{},
-						},
-					},
-				},
-			},
-			Domain: name,
-		}
+		descriptorOutput = append(descriptorOutput, dimension.Descriptors...)
+
 	}
 
-	/*for _, dimension := range rateLimitInstance.Spec.Dimensions {
-		// we assume the second dimension is always destination_cluster
+	output, _ = json.Marshal(descriptorOutput)
 
-		for _, ratelimitdimension := range dimension {
-			for n, dimensionKey := range ratelimitdimension {
-				if n == "descriptor_key" {
-					configyaml = ConfigMaptoYAML{
-						DescriptorsParent: []DescriptorsParent{
-							{
-								Descriptors: []Descriptors{
-									{
-										Key:   "destination_cluster",
-										Value: rateLimitInstance.Spec.DestinationCluster,
-										RateLimit: RateLimitDescriptor{
-											RequestsPerUnit: rateLimitInstance.Spec.RequestsPerUnit,
-											Unit:            rateLimitInstance.Spec.Unit,
-										},
-									},
-								},
-								Key: dimensionKey,
-							},
-						},
-						Domain: name,
-					}
-				}
-			}
-		}
-	}*/
-
-	configYamlFile, _ := yaml.Marshal(&configyaml)
+	y, _ := yaml.JSONToYAML(output)
 
 	fileName := name + ".yaml"
 
-	configMapData[fileName] = string(configYamlFile)
+	configMapData[fileName] = string(y)
 
 	configMap := v1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{

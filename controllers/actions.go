@@ -67,11 +67,18 @@ func (r *RateLimitReconciler) createDesiredConfigMap(rateLimitInstance *networki
 
 	var output []byte
 
-	var descriptorOutput []networkingv1alpha1.Descriptors
+	descriptorOutput := networkingv1alpha1.DescriptorsParent{}
 
-	for _, dimension := range rateLimitInstance.Spec.Dimensions {
-		descriptorOutput = append(descriptorOutput, dimension.Descriptors...)
+	descriptorOutput.Parent = make([]networkingv1alpha1.Dimensions, len(rateLimitInstance.Spec.Dimensions))
 
+	descriptorOutput.Domain = name
+
+	//dimensionOutput = []networkingv1alpha1.Dimensions{}
+
+	for k, dimension := range rateLimitInstance.Spec.Dimensions {
+		descriptorOutput.Parent[k].Key = dimension.Key
+		descriptorOutput.Parent[k].Descriptors = append(descriptorOutput.Parent[k].Descriptors, dimension.Descriptors...)
+		descriptorOutput.Parent[k].Actions = nil
 	}
 
 	output, _ = json.Marshal(descriptorOutput)

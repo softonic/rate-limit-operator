@@ -1,0 +1,40 @@
+apiVersion: networking.softonic.io/v1alpha1
+kind: RateLimit
+metadata:
+  name: ratelimit-sample
+  namespace: ratelimitoperatortest
+  finalizers:
+  - ratelimit.networking.softonic.io
+spec:
+  targetRef:
+    apiVersion: "networking.istio.io/v1alpha3"
+    kind:       VirtualService
+    name:       vs-test
+    namespace:  ratelimitoperatortest
+  dimensions:
+  - descriptors:
+    - key: destination_cluster
+      rate_limit:
+        requests_per_unit: 50
+        unit: second
+      value: outbound|80||server.noodle-v1.svc.cluster.local
+    key: remote_address_persecond
+    actions:
+      - request_headers:
+          descriptor_key: remote_address_persecond
+          header_name: x-custom-user-ip
+      - destination_cluster: {}
+  - descriptors:
+    - key: destination_cluster
+      rate_limit:
+        requests_per_unit: 2000
+        unit: minute
+      value: outbound|80||server.noodle-v1.svc.cluster.local
+    key: remote_address_perminute
+    actions:
+      - request_headers:
+          descriptor_key: remote_address_perminute
+          header_name: x-custom-user-ip
+      - destination_cluster: {}
+  workloadselector: 
+    app: istio-ingressgateway

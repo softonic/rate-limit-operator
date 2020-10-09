@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
-	//"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilter, found *istio_v1alpha3.EnvoyFilter, nameEnvoyFilter string, controllerNamespace string) (ctrl.Result, error) {

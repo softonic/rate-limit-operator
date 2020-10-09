@@ -17,16 +17,12 @@ limitations under the License.
 package controllers
 
 import (
-	// "github.com/imdario/mergo"
-	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "knative.dev/pkg/apis/duck"
+
 
 	"context"
 	"encoding/json"
 
 	appsv1 "k8s.io/api/apps/v1"
-
-	//"github.com/imdario/mergo"
 
 	"github.com/go-logr/logr"
 

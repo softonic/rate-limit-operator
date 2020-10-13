@@ -1,44 +1,37 @@
 package controllers
 
 import (
-	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/klog"
 	"context"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/klog"
 
 	"fmt"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 )
 
-func (r *RateLimitReconciler) decomissionk8sObjectResources()  error {
-
+func (r *RateLimitReconciler) decomissionk8sObjectResources() error {
 
 	err := r.decomissionEnvoyFilters(r.EnvoyFilters)
 	if err != nil {
-		klog.Infof("Cannot remove EFs %v. Error %v",r.EnvoyFilters , err)
+		klog.Infof("Cannot remove EFs %v. Error %v", r.EnvoyFilters, err)
 	}
 
 	err = r.decomissionConfigMapRatelimit(r.configMapRateLimit)
 	if err != nil {
-		klog.Infof("Cannot remove EFs %v. Error %v",r.configMapRateLimit , err)
+		klog.Infof("Cannot remove EFs %v. Error %v", r.configMapRateLimit, err)
 	}
-
 
 	return nil
 }
 
+func (r *RateLimitReconciler) decomissionEnvoyFilters(EnvoyFilters []*istio_v1alpha3.EnvoyFilter) error {
 
-
-
-func (r *RateLimitReconciler) decomissionEnvoyFilters(EnvoyFilters []*istio_v1alpha3.EnvoyFilter )  error {
-
-
-	for _,envoyfilter := range EnvoyFilters {
+	for _, envoyfilter := range EnvoyFilters {
 		err := r.deleteEnvoyFilter(*envoyfilter)
 		if err != nil {
+			klog.Infof("Cannot remove EF %v. Error %v", envoyfilter, err)
 			return err
-			klog.Infof("Cannot remove EF %v. Error %v",envoyfilter , err)
 		}
 	}
 
@@ -58,13 +51,12 @@ func (r *RateLimitReconciler) deleteEnvoyFilter(envoyFilter istio_v1alpha3.Envoy
 
 }
 
-
-func (r *RateLimitReconciler) decomissionConfigMapRatelimit(configMapRateLimit v1.ConfigMap )  error {
+func (r *RateLimitReconciler) decomissionConfigMapRatelimit(configMapRateLimit v1.ConfigMap) error {
 
 	err := r.deleteConfigMap(configMapRateLimit)
 	if err != nil {
+		klog.Infof("Cannot remove ConfigMap %v. Error %v", configMapRateLimit, err)
 		return err
-		klog.Infof("Cannot remove ConfigMap %v. Error %v",configMapRateLimit , err)
 	}
 
 	return nil
@@ -83,15 +75,15 @@ func (r *RateLimitReconciler) deleteConfigMap(configMapRateLimit v1.ConfigMap) e
 
 }
 
-func ( r *RateLimitReconciler) decomissionDeploymentVolumes(sources []v1.VolumeProjection, volumes []v1.Volume) error {
+func (r *RateLimitReconciler) decomissionDeploymentVolumes(sources []v1.VolumeProjection, volumes []v1.Volume) error {
 
-	err := r.removeVolumeFromDeployment(r.DeploymentRL, sources, volumes)
+	err := r.removeVolumeFromDeployment(sources, volumes)
 	if err != nil {
 		klog.Infof("Cannot remove VolumeSource from deploy %v. Error %v", r.DeploymentRL, err)
 		return err
 	}
 
-	err = r.Update(context.TODO(), r.DeploymentRL)
+	err = r.Update(context.TODO(), &r.DeploymentRL)
 	if err != nil {
 		klog.Infof("Cannot Update Deployment %s. Error %v", "istio-system-ratelimit", err)
 		return err
@@ -101,9 +93,9 @@ func ( r *RateLimitReconciler) decomissionDeploymentVolumes(sources []v1.VolumeP
 
 }
 
-func (r *RateLimitReconciler) removeVolumeFromDeployment(deploy *appsv1.Deployment, sources []v1.VolumeProjection, volumes []v1.Volume) error {
+func (r *RateLimitReconciler) removeVolumeFromDeployment(sources []v1.VolumeProjection, volumes []v1.Volume) error {
 
-	for _, v := range deploy.Spec.Template.Spec.Volumes {
+	for _, v := range r.DeploymentRL.Spec.Template.Spec.Volumes {
 		if v.Name == "commonconfig-volume" && len(v.VolumeSource.Projected.Sources) > 1 {
 			i := 0
 			for _, n := range v.VolumeSource.Projected.Sources {
@@ -120,8 +112,8 @@ func (r *RateLimitReconciler) removeVolumeFromDeployment(deploy *appsv1.Deployme
 			v.VolumeSource.Projected.Sources = v.VolumeSource.Projected.Sources[:i]
 		} else if v.Name == "commonconfig-volume" && len(v.VolumeSource.Projected.Sources) == 1 {
 			fmt.Println("remove volumes and volumemounts", v.Name)
-			deploy.Spec.Template.Spec.Volumes = nil
-			deploy.Spec.Template.Spec.Containers[0].VolumeMounts = nil
+			r.DeploymentRL.Spec.Template.Spec.Volumes = nil
+			r.DeploymentRL.Spec.Template.Spec.Containers[0].VolumeMounts = nil
 		}
 	}
 

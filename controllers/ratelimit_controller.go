@@ -17,8 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-
-
 	"context"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -37,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/klog"
+	// "fmt"
 )
 
 // RateLimitReconciler reconciles a RateLimit object
@@ -48,12 +47,10 @@ type RateLimitReconciler struct {
 }
 
 type K8sObject struct {
-	EnvoyFilters        []*istio_v1alpha3.EnvoyFilter
-	DeploymentRL        *appsv1.Deployment
-	configMapRateLimit  v1.ConfigMap
+	EnvoyFilters       []*istio_v1alpha3.EnvoyFilter
+	DeploymentRL       appsv1.Deployment
+	configMapRateLimit v1.ConfigMap
 }
-
-
 
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=*,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
@@ -62,8 +59,6 @@ type K8sObject struct {
 // +kubebuilder:rbac:groups=batch,resources=envoyfilters/status,verbs=get
 // +kubebuilder:rbac:groups=*,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
-
-
 
 func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
@@ -80,7 +75,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// INIT CONFIG SETTINGS
+	// INIT VARIABLES
 
 	baseName := req.Name
 
@@ -91,12 +86,17 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	controllerNamespace := "rate-limit-operator-system"
 
+	nameVolume := "commonconfig-volume"
+
+	finalizer := "ratelimit.networking.softonic.io"
+
+	// INIT RESOURCES
+
 	r.getK8sResources(baseName, istioNamespace, controllerNamespace)
 
-	volumes := constructVolumes("commonconfig-volume", baseName)
+	volumes := constructVolumes(nameVolume, baseName)
 
-	sources := constructVolumeSources(baseName)
-
+	volumeProjectedSources := constructVolumeSources(baseName)
 
 	// DECOMMISSION
 
@@ -104,13 +104,11 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	if beingDeleted {
 
-		finalizer := "ratelimit.networking.softonic.io"
-
 		if containsString(rateLimitInstance.GetFinalizers(), finalizer) {
 
 			err = r.decomissionk8sObjectResources()
 
-			err = r.decomissionDeploymentVolumes(sources, volumes)
+			err = r.decomissionDeploymentVolumes(volumeProjectedSources, volumes)
 
 			rateLimitInstance.SetFinalizers(remove(rateLimitInstance.GetFinalizers(), finalizer))
 			err = r.Update(context.TODO(), rateLimitInstance)
@@ -121,18 +119,15 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-
-	// prepare Envoy Filters
-	err = r.prepareEnvoyFilterObjects(*rateLimitInstance,baseName)
-
+	// prepare Envoy Filters and apply the needed changes
+	err = r.prepareUpdateEnvoyFilterObjects(*rateLimitInstance, baseName, controllerNamespace)
 
 	// Create ConfigMap Ratelimit
-	err = r.CreateOrUpdateConfigMap(rateLimitInstance, controllerNamespace, baseName)
-
+	err = r.CreateOrUpdateConfigMap(rateLimitInstance, istioNamespace, baseName)
 
 	// Update deployment with ConfigMap values
-	err = r.UpdateDeployment(sources, volumes)
 
+	err = r.UpdateDeployment(volumeProjectedSources, volumes)
 
 	return ctrl.Result{}, nil
 

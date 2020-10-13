@@ -9,7 +9,7 @@ import (
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	"os"
+	// "os"
 	"strings"
 )
 
@@ -24,7 +24,7 @@ type EnvoyFilterObject struct {
 	NameVhost             string
 }
 
-func (r *RateLimitReconciler) prepareEnvoyFilterObjects(rateLimitInstance networkingv1alpha1.RateLimit,baseName string) (error) {
+func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance networkingv1alpha1.RateLimit, baseName string, controllerNamespace string) error {
 
 	// controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
 
@@ -46,9 +46,13 @@ func (r *RateLimitReconciler) prepareEnvoyFilterObjects(rateLimitInstance networ
 
 	nameVhost := firstElementHosts + ":80"
 
-	address := os.Getenv("ADDRESS_RATELIMIT_ENDPOINT")
+	// address := os.Getenv("ADDRESS_RATELIMIT_ENDPOINT")
 
-	payload := []byte(fmt.Sprintf(`{"connect_timeout": "1.25s", "hosts": [ { "socket_address": { "address": "%s", "port_value": 8081 } } ], "http2_protocol_options": {}, "lb_policy": "ROUND_ROBIN", "name": "rate_limit_service", "type": "STRICT_DNS" }`, address))
+	address := "istio-system-ratelimit"
+
+	fqdn := address + "." + controllerNamespace + ".svc.cluster.local"
+
+	payload := []byte(fmt.Sprintf(`{"connect_timeout": "1.25s", "hosts": [ { "socket_address": { "address": "%s", "port_value": 8081 } } ], "http2_protocol_options": {}, "lb_policy": "ROUND_ROBIN", "name": "rate_limit_service", "type": "STRICT_DNS" }`, fqdn))
 
 	rawConfigCluster := json.RawMessage(payload)
 

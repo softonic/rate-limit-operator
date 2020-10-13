@@ -9,7 +9,7 @@ import (
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	"os"
+	// "os"
 	"strings"
 )
 
@@ -24,11 +24,11 @@ type EnvoyFilterObject struct {
 	NameVhost             string
 }
 
-func (r *RateLimitReconciler) prepareEnvoyFilterObjects(rateLimitInstance networkingv1alpha1.RateLimit,baseName string) (error) {
+func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance networkingv1alpha1.RateLimit, baseName string, controllerNamespace string) error {
 
 	// controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
 
-	controllerNamespace := "istio-system"
+	istioNamespace := "istio-system"
 
 	namespace := rateLimitInstance.Spec.TargetRef.Namespace
 	nameVirtualService := rateLimitInstance.Spec.TargetRef.Name
@@ -46,9 +46,13 @@ func (r *RateLimitReconciler) prepareEnvoyFilterObjects(rateLimitInstance networ
 
 	nameVhost := firstElementHosts + ":80"
 
-	address := os.Getenv("ADDRESS_RATELIMIT_ENDPOINT")
+	// address := os.Getenv("ADDRESS_RATELIMIT_ENDPOINT")
 
-	payload := []byte(fmt.Sprintf(`{"connect_timeout": "1.25s", "hosts": [ { "socket_address": { "address": "%s", "port_value": 8081 } } ], "http2_protocol_options": {}, "lb_policy": "ROUND_ROBIN", "name": "rate_limit_service", "type": "STRICT_DNS" }`, address))
+	address := "istio-system-ratelimit"
+
+	fqdn := address + "." + controllerNamespace + ".svc.cluster.local"
+
+	payload := []byte(fmt.Sprintf(`{"connect_timeout": "1.25s", "hosts": [ { "socket_address": { "address": "%s", "port_value": 8081 } } ], "http2_protocol_options": {}, "lb_policy": "ROUND_ROBIN", "name": "rate_limit_service", "type": "STRICT_DNS" }`, fqdn))
 
 	rawConfigCluster := json.RawMessage(payload)
 
@@ -65,11 +69,11 @@ func (r *RateLimitReconciler) prepareEnvoyFilterObjects(rateLimitInstance networ
 		Labels:                labels,
 	}
 
-	envoyFilterClusterDesired := envoyFilterObjectCluster.composeEnvoyFilter(baseName+"-cluster", controllerNamespace)
+	envoyFilterClusterDesired := envoyFilterObjectCluster.composeEnvoyFilter(baseName+"-cluster", istioNamespace)
 
 	envoyFilterCluster := &istio_v1alpha3.EnvoyFilter{}
 
-	err = r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, baseName+"-cluster", controllerNamespace)
+	err = r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, baseName+"-cluster", istioNamespace)
 	if err != nil {
 		klog.Infof("Cannot apply EF")
 		return err
@@ -92,11 +96,11 @@ func (r *RateLimitReconciler) prepareEnvoyFilterObjects(rateLimitInstance networ
 		Labels:                labels,
 	}
 
-	envoyFilterHTTPFilterDesired := envoyFilterObjectListener.composeEnvoyFilter(baseName+"-envoy-filter", controllerNamespace)
+	envoyFilterHTTPFilterDesired := envoyFilterObjectListener.composeEnvoyFilter(baseName+"-envoy-filter", istioNamespace)
 
 	envoyFilterHTTPFilter := &istio_v1alpha3.EnvoyFilter{}
 
-	err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, baseName+"-envoy-filter", controllerNamespace)
+	err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, baseName+"-envoy-filter", istioNamespace)
 	if err != nil {
 		klog.Infof("Cannot apply EF")
 		return err
@@ -114,11 +118,11 @@ func (r *RateLimitReconciler) prepareEnvoyFilterObjects(rateLimitInstance networ
 		NameVhost:             nameVhost,
 	}
 
-	envoyFilterHTTPRouteDesired := envoyFilterObjectRouteConfiguration.composeEnvoyFilter(baseName+"-route", controllerNamespace)
+	envoyFilterHTTPRouteDesired := envoyFilterObjectRouteConfiguration.composeEnvoyFilter(baseName+"-route", istioNamespace)
 
 	envoyFilterHTTPRoute := &istio_v1alpha3.EnvoyFilter{}
 
-	err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, baseName+"-route", controllerNamespace)
+	err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, baseName+"-route", istioNamespace)
 	if err != nil {
 		klog.Infof("Cannot apply EF")
 		return err

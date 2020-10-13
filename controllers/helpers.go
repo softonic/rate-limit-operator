@@ -106,6 +106,21 @@ func (e EnvoyFilterObject) composeEnvoyFilter(name string, namespace string) ist
 
 }
 
+func (r *RateLimitReconciler) getEnvoyFilters(baseName string, controllerNamespace string )  {
+
+	// case switch with the type of the filter
+
+	envoyFilterCluster := r.getEnvoyFilter(baseName+"-cluster", controllerNamespace)
+
+	envoyFilterHTTPFilter := r.getEnvoyFilter(baseName+"-envoy-filter", controllerNamespace)
+
+	envoyFilterHTTPRoute := r.getEnvoyFilter(baseName+"-route", controllerNamespace)
+
+	r.EnvoyFilters = append(r.EnvoyFilters,envoyFilterCluster, envoyFilterHTTPFilter, envoyFilterHTTPRoute )
+
+
+}
+
 func (r *RateLimitReconciler) getEnvoyFilter(name string, namespace string) *istio_v1alpha3.EnvoyFilter {
 
 	envoyFilter := istio_v1alpha3.EnvoyFilter{}

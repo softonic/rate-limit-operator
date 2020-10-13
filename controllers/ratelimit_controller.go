@@ -20,32 +20,21 @@ import (
 
 
 	"context"
-	"encoding/json"
+	"k8s.io/apimachinery/pkg/types"
 
 	appsv1 "k8s.io/api/apps/v1"
 
 	"github.com/go-logr/logr"
 
-	"k8s.io/apimachinery/pkg/types"
-
-	"fmt"
-
-	"reflect"
-
-	"strings"
-
 	_ "log"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
-	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"os"
 
 	"k8s.io/klog"
 )
@@ -55,29 +44,26 @@ type RateLimitReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+	K8sObject
 }
 
-type EnvoyFilterObject struct {
-	ApplyTo               string
-	Operation             string
-	RawConfig             json.RawMessage
-	TypeConfigObjectMatch string
-	ClusterEndpoint       string
-	Context               string
-	Labels                map[string]string
-	NameVhost             string
+type K8sObject struct {
+	EnvoyFilters        []*istio_v1alpha3.EnvoyFilter
+	DeploymentRL        *appsv1.Deployment
+	configMapRateLimit  v1.ConfigMap
 }
+
+
 
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits,verbs=get;list;watch;create;update;patch;delete
-
 // +kubebuilder:rbac:groups=*,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.softonic.io,resources=ratelimits/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.istio.io,resources=envoyfilters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=envoyfilters/status,verbs=get
-
 // +kubebuilder:rbac:groups=*,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
-
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+
+
 
 func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
@@ -85,7 +71,10 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	rateLimitInstance := &networkingv1alpha1.RateLimit{}
 
-	err := r.Get(context.TODO(), req.NamespacedName, rateLimitInstance)
+	err := r.Get(context.TODO(), types.NamespacedName{
+		Namespace: req.Namespace,
+		Name:      req.Name,
+	}, rateLimitInstance)
 	if err != nil {
 		klog.Infof("Cannot get Ratelimit CR %s. Error %v", rateLimitInstance.Name, err)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -101,21 +90,15 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	beingDeleted := rateLimitInstance.GetDeletionTimestamp() != nil
 
-	envoyFilterCluster := r.getEnvoyFilter(baseName+"-cluster", controllerNamespace)
+	r.getEnvoyFilters(baseName, controllerNamespace)
 
-	envoyFilterHTTPFilter := r.getEnvoyFilter(baseName+"-envoy-filter", controllerNamespace)
-
-	envoyFilterHTTPRoute := r.getEnvoyFilter(baseName+"-route", controllerNamespace)
-
-	configMapRateLimit, err := r.getConfigMap(baseName, controllerNamespace)
+	r.configMapRateLimit, err = r.getConfigMap(baseName, controllerNamespace)
 
 	volumes := constructVolumes("commonconfig-volume", baseName)
 
 	sources := constructVolumeSources(baseName)
 
-	var deploy *appsv1.Deployment
-
-	deploy, err = r.getDeployment("rate-limit-operator-system", "istio-system-ratelimit")
+	r.DeploymentRL, err = r.getDeployment("rate-limit-operator-system", "istio-system-ratelimit")
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -124,37 +107,9 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		if containsString(rateLimitInstance.GetFinalizers(), finalizer) {
 
-			err := r.deleteEnvoyFilter(*envoyFilterCluster)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
+			err = r.decomissionk8sObjectResources()
 
-			err = r.deleteEnvoyFilter(*envoyFilterHTTPFilter)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-
-			err = r.deleteEnvoyFilter(*envoyFilterHTTPRoute)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-
-			err = r.deleteConfigMap(configMapRateLimit)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-
-			err = r.removeVolumeFromDeployment(deploy, sources, volumes)
-			if err != nil {
-				klog.Infof("Cannot remove VolumeSource from deploy %v. Error %v", deploy, err)
-				return ctrl.Result{}, err
-			}
-
-			err = r.Update(context.TODO(), deploy)
-			if err != nil {
-				klog.Infof("Cannot Update Deployment %s. Error %v", "istio-system-ratelimit", err)
-				return ctrl.Result{}, err
-			}
+			err = r.decomissionDeploymentVolumes(sources, volumes)
 
 			rateLimitInstance.SetFinalizers(remove(rateLimitInstance.GetFinalizers(), finalizer))
 			err = r.Update(context.TODO(), rateLimitInstance)
@@ -165,136 +120,18 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	namespace := rateLimitInstance.Spec.TargetRef.Namespace
-	nameVirtualService := rateLimitInstance.Spec.TargetRef.Name
 
-	virtualService := &istio_v1beta1.VirtualService{}
-	err = r.Get(context.TODO(), types.NamespacedName{
-		Namespace: namespace,
-		Name:      nameVirtualService,
-	}, virtualService)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	// prepare Envoy Filters
+	err = r.prepareEnvoyFilterObjects(*rateLimitInstance,baseName)
 
-	firstElementHosts := strings.Join(virtualService.Spec.Hosts, "")
 
-	nameVhost := firstElementHosts + ":80"
+	// Create ConfigMap Ratelimit
+	err = r.CreateOrUpdateConfigMap(rateLimitInstance, controllerNamespace, baseName)
 
-	address := os.Getenv("ADDRESS_RATELIMIT_ENDPOINT")
-
-	payload := []byte(fmt.Sprintf(`{"connect_timeout": "1.25s", "hosts": [ { "socket_address": { "address": "%s", "port_value": 8081 } } ], "http2_protocol_options": {}, "lb_policy": "ROUND_ROBIN", "name": "rate_limit_service", "type": "STRICT_DNS" }`, address))
-
-	rawConfigCluster := json.RawMessage(payload)
-
-	labels := make(map[string]string)
-
-	labels = rateLimitInstance.Spec.WorkloadSelector
-
-	envoyFilterObjectCluster := EnvoyFilterObject{
-		Operation:             "ADD",
-		ApplyTo:               "CLUSTER",
-		RawConfig:             rawConfigCluster,
-		TypeConfigObjectMatch: "Cluster",
-		ClusterEndpoint:       address,
-		Labels:                labels,
-	}
-
-	envoyFilterClusterDesired := envoyFilterObjectCluster.composeEnvoyFilter(baseName+"-cluster", controllerNamespace)
-
-	envoyFilterCluster = &istio_v1alpha3.EnvoyFilter{}
-
-	result, err := r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, baseName+"-cluster", controllerNamespace)
-	if err != nil {
-		return result, err
-	}
-
-	domain := baseName
-
-	payload = []byte(fmt.Sprintf(`{"config":{"domain":"%s","rate_limit_service":{"grpc_service":{"envoy_grpc":{"cluster_name":"rate_limit_service"},"timeout":"1.25s"}}},"name":"envoy.rate_limit"}`, domain))
-
-	rawConfigHTTPFilter := json.RawMessage(payload)
-
-	envoyFilterObjectListener := EnvoyFilterObject{
-		Operation:             "INSERT_BEFORE",
-		ApplyTo:               "HTTP_FILTER",
-		RawConfig:             rawConfigHTTPFilter,
-		TypeConfigObjectMatch: "Listener",
-		Context:               "GATEWAY",
-		Labels:                labels,
-	}
-
-	envoyFilterHTTPFilterDesired := envoyFilterObjectListener.composeEnvoyFilter(baseName+"-envoy-filter", controllerNamespace)
-
-	envoyFilterHTTPFilter = &istio_v1alpha3.EnvoyFilter{}
-
-	result, err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, baseName+"-envoy-filter", controllerNamespace)
-	if err != nil {
-		return result, err
-	}
-
-	rawConfigHTTPRoute := json.RawMessage(`{"route":{"rate_limits":[{"actions":[{"request_headers":{"descriptor_key":"remote_address","header_name":"x-custom-user-ip"}},{"destination_cluster":{}}]}]}}`)
-
-	envoyFilterObjectRouteConfiguration := EnvoyFilterObject{
-		Operation:             "MERGE",
-		ApplyTo:               "HTTP_ROUTE",
-		RawConfig:             rawConfigHTTPRoute,
-		TypeConfigObjectMatch: "RouteConfiguration",
-		Context:               "GATEWAY",
-		Labels:                labels,
-		NameVhost:             nameVhost,
-	}
-
-	envoyFilterHTTPRouteDesired := envoyFilterObjectRouteConfiguration.composeEnvoyFilter(baseName+"-route", controllerNamespace)
-
-	envoyFilterHTTPRoute = &istio_v1alpha3.EnvoyFilter{}
-
-	result, err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, baseName+"-route", controllerNamespace)
-	if err != nil {
-		return result, err
-	}
-
-	configmapDesired, err := r.createDesiredConfigMap(rateLimitInstance, controllerNamespace, baseName)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	found := v1.ConfigMap{}
-
-	configMapRateLimit, err = r.getConfigMap(baseName, controllerNamespace)
-
-	if err != nil {
-
-		err = r.Create(context.TODO(), &configmapDesired)
-		if err != nil {
-			//return ctrl.Result{}, client.IgnoreNotFound(err)
-			klog.Infof("Cannot create %v, Error: %v", configmapDesired, err)
-		}
-	} else if !reflect.DeepEqual(configmapDesired, found) {
-
-		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
-
-		err = r.Patch(context.TODO(), &configmapDesired, client.Apply, applyOpts...)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
 
 	// Update deployment with configmap values
+	err = r.UpdateDeployment(sources, volumes)
 
-	err = r.addVolumeFromDeployment(deploy, sources, volumes)
-	if err != nil {
-		klog.Infof("Cannot add VolumeSource from deploy %v. Error %v", deploy, err)
-		return ctrl.Result{}, err
-	}
-
-	klog.Infof("This will be the deployment to update %v", deploy)
-
-	err = r.Update(context.TODO(), deploy)
-	if err != nil {
-		klog.Infof("Cannot Update Deployment %s. Error %v", "istio-system-ratelimit", err)
-		return ctrl.Result{}, err
-	}
 
 	return ctrl.Result{}, nil
 

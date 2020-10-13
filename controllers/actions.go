@@ -1,24 +1,87 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/ghodss/yaml"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
-	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
-
 	"context"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 )
 
-func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilter, found *istio_v1alpha3.EnvoyFilter, nameEnvoyFilter string, controllerNamespace string) (ctrl.Result, error) {
+func (r *RateLimitReconciler) decomissionk8sObjectResources()  error {
+
+
+	err := r.decomissionEnvoyFilters(r.EnvoyFilters)
+	if err != nil {
+		klog.Infof("Cannot remove EFs %v. Error %v",r.EnvoyFilters , err)
+	}
+
+	err = r.decomissionConfigMapRatelimit(r.configMapRateLimit)
+	if err != nil {
+		klog.Infof("Cannot remove EFs %v. Error %v",r.configMapRateLimit , err)
+	}
+
+
+	return nil
+}
+
+
+func (r *RateLimitReconciler) decomissionEnvoyFilters(EnvoyFilters []*istio_v1alpha3.EnvoyFilter )  error {
+
+
+	for _,envoyfilter := range EnvoyFilters {
+		err := r.deleteEnvoyFilter(*envoyfilter)
+		if err != nil {
+			return err
+			klog.Infof("Cannot remove EF %v. Error %v",envoyfilter , err)
+		}
+	}
+
+	return nil
+
+}
+
+
+
+func (r *RateLimitReconciler) decomissionConfigMapRatelimit(configMapRateLimit v1.ConfigMap )  error {
+
+	err := r.deleteConfigMap(configMapRateLimit)
+	if err != nil {
+		return err
+		klog.Infof("Cannot remove ConfigMap %v. Error %v",configMapRateLimit , err)
+	}
+
+	return nil
+
+}
+
+
+func ( r *RateLimitReconciler) decomissionDeploymentVolumes(sources []v1.VolumeProjection, volumes []v1.Volume) error {
+
+	err := r.removeVolumeFromDeployment(r.DeploymentRL, sources, volumes)
+	if err != nil {
+		klog.Infof("Cannot remove VolumeSource from deploy %v. Error %v", r.DeploymentRL, err)
+		return err
+	}
+
+	err = r.Update(context.TODO(), r.DeploymentRL)
+	if err != nil {
+		klog.Infof("Cannot Update Deployment %s. Error %v", "istio-system-ratelimit", err)
+		return err
+	}
+
+}
+
+func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilter, found *istio_v1alpha3.EnvoyFilter, nameEnvoyFilter string, controllerNamespace string) (error) {
 
 	err := r.Get(context.TODO(), types.NamespacedName{
 		Namespace: controllerNamespace,
@@ -29,7 +92,7 @@ func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilte
 		err = r.Create(context.TODO(), &desired)
 		if err != nil {
 			klog.Infof("Cannot Create EnvoyFilter %s. Error %v", desired.Name, err)
-			return ctrl.Result{}, err
+			return err
 		}
 	} else {
 
@@ -38,12 +101,12 @@ func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilte
 		err = r.Patch(context.TODO(), &desired, client.Apply, applyOpts...)
 		if err != nil {
 			klog.Infof("Cannot Patch EnvoyFilter %s. Error %v", desired.Name, err)
-			return ctrl.Result{}, err
+			return err
 		}
-		return ctrl.Result{}, nil
+		return nil
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 
 }
 
@@ -59,45 +122,64 @@ func (r *RateLimitReconciler) deleteEnvoyFilter(envoyFilter istio_v1alpha3.Envoy
 
 }
 
-func (r *RateLimitReconciler) createDesiredConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, desiredNamespace string, name string) (v1.ConfigMap, error) {
+func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, controllerNamespace string, baseName string) error {
 
-	configMapData := make(map[string]string)
+	configmapDesired, err := r.generateConfigMap(rateLimitInstance, controllerNamespace, baseName)
+	if err != nil {
+		klog.Infof("Cannot create %v, Error: %v", configmapDesired, err)
+		return err
+	}
 
-	configyaml := ConfigMaptoYAML{}
+	found := v1.ConfigMap{}
 
-	for _, dimension := range rateLimitInstance.Spec.Dimensions {
-		// we assume the second dimension is always destination_cluster
-		for _, ratelimitdimension := range dimension {
-			for n, dimensionKey := range ratelimitdimension {
-				if n == "descriptor_key" {
-					configyaml = ConfigMaptoYAML{
-						DescriptorsParent: []DescriptorsParent{
-							{
-								Descriptors: []Descriptors{
-									{
-										Key:   "destination_cluster",
-										Value: rateLimitInstance.Spec.DestinationCluster,
-										RateLimit: RateLimitDescriptor{
-											RequestsPerUnit: rateLimitInstance.Spec.RequestsPerUnit,
-											Unit:            rateLimitInstance.Spec.Unit,
-										},
-									},
-								},
-								Key: dimensionKey,
-							},
-						},
-						Domain: name,
-					}
-				}
-			}
+	r.configMapRateLimit, err = r.getConfigMap(baseName, controllerNamespace)
+	if err != nil {
+		err = r.Create(context.TODO(), &configmapDesired)
+		if err != nil {
+			//return ctrl.Result{}, client.IgnoreNotFound(err)
+			klog.Infof("Cannot create %v, Error: %v", configmapDesired, err)
+		}
+	} else if !reflect.DeepEqual(configmapDesired, found) {
+
+		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
+
+		err = r.Patch(context.TODO(), &configmapDesired, client.Apply, applyOpts...)
+		if err != nil {
+			return err
 		}
 	}
 
-	configYamlFile, _ := yaml.Marshal(&configyaml)
+	return nil
+
+}
+
+func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, desiredNamespace string, name string) (v1.ConfigMap, error) {
+
+	configMapData := make(map[string]string)
+
+	var output []byte
+
+	descriptorOutput := networkingv1alpha1.DescriptorsParent{}
+
+	descriptorOutput.Parent = make([]networkingv1alpha1.Dimensions, len(rateLimitInstance.Spec.Dimensions))
+
+	descriptorOutput.Domain = name
+
+	//dimensionOutput = []networkingv1alpha1.Dimensions{}
+
+	for k, dimension := range rateLimitInstance.Spec.Dimensions {
+		descriptorOutput.Parent[k].Key = dimension.Key
+		descriptorOutput.Parent[k].Descriptors = append(descriptorOutput.Parent[k].Descriptors, dimension.Descriptors...)
+		descriptorOutput.Parent[k].Actions = nil
+	}
+
+	output, _ = json.Marshal(descriptorOutput)
+
+	y, _ := yaml.JSONToYAML(output)
 
 	fileName := name + ".yaml"
 
-	configMapData[fileName] = string(configYamlFile)
+	configMapData[fileName] = string(y)
 
 	configMap := v1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -120,6 +202,24 @@ func (r *RateLimitReconciler) deleteConfigMap(configMapRateLimit v1.ConfigMap) e
 	err := r.Delete(context.TODO(), &configMapRateLimit)
 	if err != nil {
 		klog.Infof("Cannot delete ConfigMap %s. Error %v", configMapRateLimit.Name, err)
+		return err
+	}
+
+	return nil
+
+}
+
+func (r *RateLimitReconciler) UpdateDeployment(sources []v1.VolumeProjection, volumes []v1.Volume) error {
+
+	err := r.addVolumeFromDeployment(r.DeploymentRL, sources, volumes)
+	if err != nil {
+		klog.Infof("Cannot add VolumeSource from deploy %v. Error %v", r.DeploymentRL, err)
+		return err
+	}
+
+	err = r.Update(context.TODO(), r.DeploymentRL)
+	if err != nil {
+		klog.Infof("Cannot Update Deployment %s. Error %v", "istio-system-ratelimit", err)
 		return err
 	}
 

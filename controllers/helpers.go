@@ -14,27 +14,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 )
 
-type RateLimitDescriptor struct {
-	RequestsPerUnit uint32 `yaml:"requests_per_unit"`
-	Unit            string `yaml:"unit"`
-}
-
-type Descriptors struct {
-	Key       string              `yaml:"key"`
-	RateLimit RateLimitDescriptor `yaml:"rate_limit"`
-	Value     string              `yaml:"value"`
-}
-
-type DescriptorsParent struct {
-	Descriptors []Descriptors `yaml:"descriptors"`
-	Key         string        `yaml:"key"`
-}
-
-type ConfigMaptoYAML struct {
-	DescriptorsParent []DescriptorsParent `yaml:"descriptors"`
-	Domain            string              `yaml:"domain"`
-}
-
 func getConfigObjectMatch(typeConfigObjectMatch string, operation string, clusterEndpoint string, context string, nameVhost string) istio_v1alpha3.EnvoyConfigObjectMatch {
 
 	Match := istio_v1alpha3.EnvoyConfigObjectMatch{}
@@ -124,6 +103,21 @@ func (e EnvoyFilterObject) composeEnvoyFilter(name string, namespace string) ist
 	}
 
 	return envoyFilterBaseDesired
+
+}
+
+func (r *RateLimitReconciler) getEnvoyFilters(baseName string, controllerNamespace string )  {
+
+	// case switch with the type of the filter
+
+	envoyFilterCluster := r.getEnvoyFilter(baseName+"-cluster", controllerNamespace)
+
+	envoyFilterHTTPFilter := r.getEnvoyFilter(baseName+"-envoy-filter", controllerNamespace)
+
+	envoyFilterHTTPRoute := r.getEnvoyFilter(baseName+"-route", controllerNamespace)
+
+	r.EnvoyFilters = append(r.EnvoyFilters,envoyFilterCluster, envoyFilterHTTPFilter, envoyFilterHTTPRoute )
+
 
 }
 

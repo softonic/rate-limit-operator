@@ -80,30 +80,31 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// INIT CONFIG SETTINGS
+
 	baseName := req.Name
 
-	// controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
+	// controllerNamespace := os.Getenv("CONTROLLER_NAMESPACE")
+	// istioNamespace := os.Getenv("ISTIO_NAMESPACE")
 
-	controllerNamespace := "istio-system"
+	istioNamespace := "istio-system"
 
-	finalizer := "ratelimit.networking.softonic.io"
+	controllerNamespace := "rate-limit-operator-system"
 
-	beingDeleted := rateLimitInstance.GetDeletionTimestamp() != nil
-
-	r.getEnvoyFilters(baseName, controllerNamespace)
-
-	r.configMapRateLimit, err = r.getConfigMap(baseName, controllerNamespace)
+	r.getK8sResources(baseName, istioNamespace, controllerNamespace)
 
 	volumes := constructVolumes("commonconfig-volume", baseName)
 
 	sources := constructVolumeSources(baseName)
 
-	r.DeploymentRL, err = r.getDeployment("rate-limit-operator-system", "istio-system-ratelimit")
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+
+	// DECOMMISSION
+
+	beingDeleted := rateLimitInstance.GetDeletionTimestamp() != nil
 
 	if beingDeleted {
+
+		finalizer := "ratelimit.networking.softonic.io"
 
 		if containsString(rateLimitInstance.GetFinalizers(), finalizer) {
 
@@ -129,7 +130,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err = r.CreateOrUpdateConfigMap(rateLimitInstance, controllerNamespace, baseName)
 
 
-	// Update deployment with configmap values
+	// Update deployment with ConfigMap values
 	err = r.UpdateDeployment(sources, volumes)
 
 

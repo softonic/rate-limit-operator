@@ -28,7 +28,7 @@ func (r *RateLimitReconciler) prepareEnvoyFilterObjects(rateLimitInstance networ
 
 	// controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
 
-	controllerNamespace := "istio-system"
+	istioNamespace := "istio-system"
 
 	namespace := rateLimitInstance.Spec.TargetRef.Namespace
 	nameVirtualService := rateLimitInstance.Spec.TargetRef.Name
@@ -65,11 +65,11 @@ func (r *RateLimitReconciler) prepareEnvoyFilterObjects(rateLimitInstance networ
 		Labels:                labels,
 	}
 
-	envoyFilterClusterDesired := envoyFilterObjectCluster.composeEnvoyFilter(baseName+"-cluster", controllerNamespace)
+	envoyFilterClusterDesired := envoyFilterObjectCluster.composeEnvoyFilter(baseName+"-cluster", istioNamespace)
 
 	envoyFilterCluster := &istio_v1alpha3.EnvoyFilter{}
 
-	err = r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, baseName+"-cluster", controllerNamespace)
+	err = r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, baseName+"-cluster", istioNamespace)
 	if err != nil {
 		klog.Infof("Cannot apply EF")
 		return err
@@ -92,11 +92,11 @@ func (r *RateLimitReconciler) prepareEnvoyFilterObjects(rateLimitInstance networ
 		Labels:                labels,
 	}
 
-	envoyFilterHTTPFilterDesired := envoyFilterObjectListener.composeEnvoyFilter(baseName+"-envoy-filter", controllerNamespace)
+	envoyFilterHTTPFilterDesired := envoyFilterObjectListener.composeEnvoyFilter(baseName+"-envoy-filter", istioNamespace)
 
 	envoyFilterHTTPFilter := &istio_v1alpha3.EnvoyFilter{}
 
-	err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, baseName+"-envoy-filter", controllerNamespace)
+	err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, baseName+"-envoy-filter", istioNamespace)
 	if err != nil {
 		klog.Infof("Cannot apply EF")
 		return err
@@ -114,11 +114,11 @@ func (r *RateLimitReconciler) prepareEnvoyFilterObjects(rateLimitInstance networ
 		NameVhost:             nameVhost,
 	}
 
-	envoyFilterHTTPRouteDesired := envoyFilterObjectRouteConfiguration.composeEnvoyFilter(baseName+"-route", controllerNamespace)
+	envoyFilterHTTPRouteDesired := envoyFilterObjectRouteConfiguration.composeEnvoyFilter(baseName+"-route", istioNamespace)
 
 	envoyFilterHTTPRoute := &istio_v1alpha3.EnvoyFilter{}
 
-	err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, baseName+"-route", controllerNamespace)
+	err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, baseName+"-route", istioNamespace)
 	if err != nil {
 		klog.Infof("Cannot apply EF")
 		return err

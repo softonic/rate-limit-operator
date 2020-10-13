@@ -97,6 +97,8 @@ func ( r *RateLimitReconciler) decomissionDeploymentVolumes(sources []v1.VolumeP
 		return err
 	}
 
+	return nil
+
 }
 
 func (r *RateLimitReconciler) removeVolumeFromDeployment(deploy *appsv1.Deployment, sources []v1.VolumeProjection, volumes []v1.Volume) error {

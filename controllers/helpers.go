@@ -14,6 +14,29 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 )
 
+
+func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace string, controllerNamespace string) error {
+
+	r.getEnvoyFilters(baseName, istioNamespace)
+
+	var err error
+
+	r.configMapRateLimit, err = r.getConfigMap(baseName, istioNamespace)
+	if err != nil {
+		klog.Infof("Cannot Found ConfigMap %s. Error %v",baseName , err)
+		return err
+	}
+
+
+	r.DeploymentRL, err = r.getDeployment(controllerNamespace, "istio-system-ratelimit")
+	if err != nil {
+		klog.Infof("Cannot Found Deployment %s. Error %v","istio-system-ratelimit" , err)
+		return err
+	}
+
+	return nil
+}
+
 func getConfigObjectMatch(typeConfigObjectMatch string, operation string, clusterEndpoint string, context string, nameVhost string) istio_v1alpha3.EnvoyConfigObjectMatch {
 
 	Match := istio_v1alpha3.EnvoyConfigObjectMatch{}
@@ -195,11 +218,11 @@ func constructVolumes(nameVolume string, nameVolumeSource string) []v1.Volume {
 	return Volumes
 }
 
-func (r *RateLimitReconciler) getDeployment(namespace string, name string) (*appsv1.Deployment, error) {
+func (r *RateLimitReconciler) getDeployment(controllerNamespace string, name string) (*appsv1.Deployment, error) {
 
 	deploy := &appsv1.Deployment{}
 	err := r.Get(context.TODO(), client.ObjectKey{
-		Namespace: namespace,
+		Namespace: controllerNamespace,
 		Name:      name,
 	}, deploy)
 	if err != nil {

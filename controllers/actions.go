@@ -91,7 +91,6 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 
 	descriptorOutput.Domain = name
 
-	//dimensionOutput = []networkingv1alpha1.Dimensions{}
 
 	for k, dimension := range rateLimitInstance.Spec.Dimensions {
 		descriptorOutput.Parent[k].Key = dimension.Key

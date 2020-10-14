@@ -30,6 +30,8 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	istioNamespace := "istio-system"
 
+	jsonActions := retrieveJsonActions(rateLimitInstance, baseName)
+
 	namespace := rateLimitInstance.Spec.TargetRef.Namespace
 	nameVirtualService := rateLimitInstance.Spec.TargetRef.Name
 
@@ -79,8 +81,6 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 		return err
 	}
 
-	// prepareEF(type)  and
-
 	domain := baseName
 
 	payload = []byte(fmt.Sprintf(`{"config":{"domain":"%s","rate_limit_service":{"grpc_service":{"envoy_grpc":{"cluster_name":"rate_limit_service"},"timeout":"1.25s"}}},"name":"envoy.rate_limit"}`, domain))
@@ -106,7 +106,14 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 		return err
 	}
 
-	rawConfigHTTPRoute := json.RawMessage(`{"route":{"rate_limits":[{"actions":[{"request_headers":{"descriptor_key":"remote_address","header_name":"x-custom-user-ip"}},{"destination_cluster":{}}]}]}}`)
+	initJson := []byte(`{"route":{"rate_limits":[{"actions":`)
+	finalJson := []byte(`}]}}`)
+
+	intermediateJson := append(initJson, jsonActions...)
+
+	rawConfigHTTPRoute := json.RawMessage(append(intermediateJson, finalJson...))
+
+	//rawConfigHTTPRoute := json.RawMessage(`{"route":{"rate_limits":[{"actions":[{"request_headers":{"descriptor_key":"remote_address","header_name":"x-custom-user-ip"}},{"destination_cluster":{}}]}]}}`)
 
 	envoyFilterObjectRouteConfiguration := EnvoyFilterObject{
 		Operation:             "MERGE",
@@ -129,5 +136,34 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 	}
 
 	return nil
+
+}
+
+func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseName string) []byte {
+
+	var output []byte
+
+	var Actions []networkingv1alpha1.Actions
+
+	var Dimensions []networkingv1alpha1.Dimensions
+
+	Dimensions = make([]networkingv1alpha1.Dimensions, len(rateLimitInstance.Spec.Dimensions))
+
+
+	for k, dimension := range rateLimitInstance.Spec.Dimensions {
+		//Dimensions = append(Dimensions, dimension)
+		Dimensions[k].Actions = append(Dimensions[k].Actions, dimension.Actions[0])
+		Dimensions[k].Key = ""
+		Dimensions[k].Descriptors = nil
+	}
+
+
+	for _, dimension := range Dimensions {
+		Actions = append(Actions, dimension.Actions...)
+	}
+
+	output, _ = json.Marshal(Actions)
+
+	return output
 
 }

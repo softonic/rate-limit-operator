@@ -179,6 +179,8 @@ func (r *RateLimitReconciler) getConfigMap(name string, namespace string) (v1.Co
 
 func constructVolumeSources(name string) []v1.VolumeProjection {
 
+	//sources := make([]v1.VolumeProjection, 0)
+
 	sources := []v1.VolumeProjection{
 		{
 			ConfigMap: &v1.ConfigMapProjection{
@@ -201,6 +203,8 @@ func constructVolumes(nameVolume string, nameVolumeSource string) []v1.Volume {
 	p := &defaultMode
 
 	sources := constructVolumeSources(nameVolumeSource)
+
+	//	Volumes := make([]v1.Volume, 0)
 
 	Volumes := []v1.Volume{
 		{

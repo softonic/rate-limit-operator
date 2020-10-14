@@ -82,7 +82,6 @@ spec:
                     key:
                       type: string
                   required:
-                  - descriptors
                   - key
                   type: object
                 type: array

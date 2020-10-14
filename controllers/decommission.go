@@ -5,8 +5,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 
-	"fmt"
-
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 )
 
@@ -99,10 +97,8 @@ func (r *RateLimitReconciler) removeVolumeFromDeployment(sources []v1.VolumeProj
 		if v.Name == "commonconfig-volume" && len(v.VolumeSource.Projected.Sources) > 1 {
 			i := 0
 			for _, n := range v.VolumeSource.Projected.Sources {
-				fmt.Println("this is the first element of the sources", n)
 				for _, p := range sources {
 					if n.ConfigMap.Name == p.ConfigMap.Name {
-						fmt.Println("Match with an element")
 					} else {
 						v.VolumeSource.Projected.Sources[i] = n
 						i++
@@ -111,7 +107,6 @@ func (r *RateLimitReconciler) removeVolumeFromDeployment(sources []v1.VolumeProj
 			}
 			v.VolumeSource.Projected.Sources = v.VolumeSource.Projected.Sources[:i]
 		} else if v.Name == "commonconfig-volume" && len(v.VolumeSource.Projected.Sources) == 1 {
-			fmt.Println("remove volumes and volumemounts", v.Name)
 			//	r.DeploymentRL.Spec.Template.Spec.Volumes = nil
 			//	r.DeploymentRL.Spec.Template.Spec.Containers[0].VolumeMounts = nil
 		}

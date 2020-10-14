@@ -3,9 +3,6 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-
-	//"fmt"
 	"github.com/ghodss/yaml"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
@@ -16,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
-	// "fmt"
 )
 
 func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilter, found *istio_v1alpha3.EnvoyFilter, nameEnvoyFilter string, controllerNamespace string) error {
@@ -62,7 +58,6 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 
 	found, err = r.getConfigMap(baseName, istioNamespace)
 	if err != nil {
-		fmt.Println(r.configMapRateLimit)
 		err = r.Create(context.TODO(), &r.configMapRateLimit)
 		if err != nil {
 			//return ctrl.Result{}, client.IgnoreNotFound(err)

@@ -153,11 +153,11 @@ func (r *RateLimitReconciler) addVolumeFromDeployment(volumeProjectedSources []v
 		},
 	}
 
-	if len(r.DeploymentRL.Spec.Template.Spec.Volumes) == 0 {
-		r.DeploymentRL.Spec.Template.Spec.Volumes = append(r.DeploymentRL.Spec.Template.Spec.Volumes, volumes...)
-		r.DeploymentRL.Spec.Template.Spec.Containers[0].VolumeMounts = defaultVolumeMount
-		return nil
-	}
+	//if len(r.DeploymentRL.Spec.Template.Spec.Volumes) == 0 {
+	//	r.DeploymentRL.Spec.Template.Spec.Volumes = append(r.DeploymentRL.Spec.Template.Spec.Volumes, volumes...)
+	//	r.DeploymentRL.Spec.Template.Spec.Containers[0].VolumeMounts = defaultVolumeMount
+	//	return nil
+	//}
 
 	count := 0
 	for _, v := range r.DeploymentRL.Spec.Template.Spec.Volumes {

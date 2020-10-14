@@ -50,7 +50,7 @@ type Actions struct {
 
 type Dimensions struct {
 	Key         string        `json:"key"`
-	Descriptors []Descriptors `json:"descriptors"`
+	Descriptors []Descriptors `json:"descriptors,omitempty"`
 	Actions     []Actions     `json:"actions,omitempty"`
 }
 

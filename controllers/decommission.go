@@ -112,8 +112,8 @@ func (r *RateLimitReconciler) removeVolumeFromDeployment(sources []v1.VolumeProj
 			v.VolumeSource.Projected.Sources = v.VolumeSource.Projected.Sources[:i]
 		} else if v.Name == "commonconfig-volume" && len(v.VolumeSource.Projected.Sources) == 1 {
 			fmt.Println("remove volumes and volumemounts", v.Name)
-			r.DeploymentRL.Spec.Template.Spec.Volumes = nil
-			r.DeploymentRL.Spec.Template.Spec.Containers[0].VolumeMounts = nil
+			//	r.DeploymentRL.Spec.Template.Spec.Volumes = nil
+			//	r.DeploymentRL.Spec.Template.Spec.Containers[0].VolumeMounts = nil
 		}
 	}
 

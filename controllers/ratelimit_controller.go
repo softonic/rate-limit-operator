@@ -46,6 +46,19 @@ type RateLimitReconciler struct {
 	K8sObject
 }
 
+type MockReconciler struct {
+	RateLimitReconciler
+}
+
+type Reconciler interface {
+	generateConfigMap(*networkingv1alpha1.RateLimit, string, string) error
+}
+
+type Controller struct {
+	// use interface, not struct
+	Reconciler
+}
+
 type K8sObject struct {
 	EnvoyFilters       []*istio_v1alpha3.EnvoyFilter
 	DeploymentRL       appsv1.Deployment

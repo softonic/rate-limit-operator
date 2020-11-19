@@ -48,9 +48,9 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 
 	var err error
 
-	err = r.generateConfigMap(rateLimitInstance, istioNamespace, baseName)
+	cm := r.generateConfigMap(rateLimitInstance, istioNamespace, baseName)
 	if err != nil {
-		klog.Infof("Cannot generate %v, Error: %v", r.configMapRateLimit, err)
+		klog.Infof("Cannot generate %v, Error: %v", cm, err)
 		return err
 	}
 
@@ -58,16 +58,16 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 
 	found, err = r.getConfigMap(baseName, istioNamespace)
 	if err != nil {
-		err = r.Create(context.TODO(), &r.configMapRateLimit)
+		err = r.Create(context.TODO(), &cm)
 		if err != nil {
 			//return ctrl.Result{}, client.IgnoreNotFound(err)
-			klog.Infof("Cannot create %v, Error: %v", r.configMapRateLimit, err)
+			klog.Infof("Cannot create %v, Error: %v", cm, err)
 		}
-	} else if !reflect.DeepEqual(r.configMapRateLimit, found) {
+	} else if !reflect.DeepEqual(cm, found) {
 
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
 
-		err = r.Patch(context.TODO(), &r.configMapRateLimit, client.Apply, applyOpts...)
+		err = r.Patch(context.TODO(), &cm, client.Apply, applyOpts...)
 		if err != nil {
 			return err
 		}
@@ -77,7 +77,7 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 
 }
 
-func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, istioNamespace string, name string) error {
+func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, istioNamespace string, name string) v1.ConfigMap {
 
 	configMapData := make(map[string]string)
 
@@ -115,9 +115,7 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 		Data: configMapData,
 	}
 
-	r.configMapRateLimit = configMap
-
-	return nil
+		return configMap
 
 }
 

@@ -149,14 +149,12 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 
 	Dimensions = make([]networkingv1alpha1.Dimensions, len(rateLimitInstance.Spec.Dimensions))
 
-
 	for k, dimension := range rateLimitInstance.Spec.Dimensions {
 		//Dimensions = append(Dimensions, dimension)
 		Dimensions[k].Actions = append(Dimensions[k].Actions, dimension.Actions[0])
 		Dimensions[k].Key = ""
 		Dimensions[k].Descriptors = nil
 	}
-
 
 	for _, dimension := range Dimensions {
 		Actions = append(Actions, dimension.Actions...)

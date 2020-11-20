@@ -53,15 +53,10 @@ func TestFailIfGenerateConfigMap(t *testing.T) {
 
 	mr := RateLimitReconciler{}
 
-	err := mr.generateConfigMap(&instance, istioNamespace, name)
-	if err != nil {
-		t.Errorf("cannot generate Configmap")
-	}
+	cm := mr.generateConfigMap(&instance, istioNamespace, name)
 
-	if mr.configMapRateLimit.Data == nil {
+	if cm.Data == nil {
 		t.Errorf("data should be something, got nil")
 	}
-
-
 
 }

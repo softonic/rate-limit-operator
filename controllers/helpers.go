@@ -23,12 +23,12 @@ func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace st
 	r.configMapRateLimit, err = r.getConfigMap(baseName, istioNamespace)
 	if err != nil {
 		klog.Infof("Cannot Found ConfigMap in the getk8sresource func %s. Error %v", baseName, err)
-		return err
+
 	}
 
 	//var deploy *appsv1.Deployment
 
-	r.DeploymentRL, err = r.getDeployment(controllerNamespace, "istio-system-ratelimit")
+	r.DeploymentRL, err = r.getDeployment(istioNamespace, "istio-system-ratelimit")
 	if err != nil {
 		klog.Infof("Cannot Found Deployment %s. Error %v", "istio-system-ratelimit", err)
 		return err
@@ -129,17 +129,19 @@ func (e EnvoyFilterObject) composeEnvoyFilter(name string, namespace string) ist
 
 }
 
-func (r *RateLimitReconciler) getEnvoyFilters(baseName string, controllerNamespace string) {
+func (r *RateLimitReconciler) getEnvoyFilters(baseName string, istioNamespace string) *[]*istio_v1alpha3.EnvoyFilter {
 
 	// case switch with the type of the filter
 
-	envoyFilterCluster := r.getEnvoyFilter(baseName+"-cluster", controllerNamespace)
+	envoyFilterCluster := r.getEnvoyFilter(baseName+"-cluster", istioNamespace)
 
-	envoyFilterHTTPFilter := r.getEnvoyFilter(baseName+"-envoy-filter", controllerNamespace)
+	envoyFilterHTTPFilter := r.getEnvoyFilter(baseName+"-envoy-filter", istioNamespace)
 
-	envoyFilterHTTPRoute := r.getEnvoyFilter(baseName+"-route", controllerNamespace)
+	envoyFilterHTTPRoute := r.getEnvoyFilter(baseName+"-route", istioNamespace)
 
 	r.EnvoyFilters = append(r.EnvoyFilters, envoyFilterCluster, envoyFilterHTTPFilter, envoyFilterHTTPRoute)
+
+	return &r.EnvoyFilters
 
 }
 
@@ -152,9 +154,11 @@ func (r *RateLimitReconciler) getEnvoyFilter(name string, namespace string) *ist
 		Name:      name,
 	}, &envoyFilter)
 	if err != nil {
-		klog.Infof("Cannot Found EnvoyFilter %s. Error %v", envoyFilter.Name, err)
+		klog.Infof("Cannot Found EnvoyFilter %s. Error %v", name, err)
 		return &envoyFilter
 	}
+
+	klog.Infof("!!! Found EnvoyFilter %s", name)
 
 	return &envoyFilter
 
@@ -225,14 +229,19 @@ func (r *RateLimitReconciler) getDeployment(controllerNamespace string, name str
 
 	found := appsv1.Deployment{}
 
+	//klog.Infof("Before getting this deployment")
+
 	deploy := &appsv1.Deployment{}
 	err := r.Get(context.TODO(), client.ObjectKey{
-		Namespace: controllerNamespace,
+		Namespace: "istio-system",
 		Name:      name,
 	}, deploy)
 	if err != nil {
 		klog.Infof("Cannot Get Deployment %s. Error %v", "istio-system-ratelimit", err)
 		return found, err
 	}
+
+	//klog.Infof("Getting this deployment %v", deploy)
+
 	return *deploy, nil
 }

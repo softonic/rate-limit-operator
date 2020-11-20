@@ -46,19 +46,6 @@ type RateLimitReconciler struct {
 	K8sObject
 }
 
-type MockReconciler struct {
-	RateLimitReconciler
-}
-
-type Reconciler interface {
-	generateConfigMap(*networkingv1alpha1.RateLimit, string, string) error
-}
-
-type Controller struct {
-	// use interface, not struct
-	Reconciler
-}
-
 type K8sObject struct {
 	EnvoyFilters       []*istio_v1alpha3.EnvoyFilter
 	DeploymentRL       appsv1.Deployment
@@ -105,7 +92,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// INIT RESOURCES
 
-	r.getK8sResources(baseName, istioNamespace, controllerNamespace)
+	r.getK8sResources(baseName, istioNamespace, istioNamespace)
 
 	volumes := constructVolumes(nameVolume, baseName)
 
@@ -119,7 +106,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		if containsString(rateLimitInstance.GetFinalizers(), finalizer) {
 
-			err = r.decomissionk8sObjectResources()
+			err = r.decomissionk8sObjectResources(baseName, controllerNamespace, istioNamespace)
 
 			err = r.decomissionDeploymentVolumes(volumeProjectedSources, volumes)
 

@@ -22,12 +22,13 @@ func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilte
 		Name:      nameEnvoyFilter,
 	}, found)
 	if err != nil {
-		klog.Infof("Cannot Found EnvoyFilter %s. Error %v", found.Name, err)
+		klog.Infof("Cannot Found EnvoyFilter %s before creating. Error %v", found.Name, err)
 		err = r.Create(context.TODO(), &desired)
 		if err != nil {
 			klog.Infof("Cannot Create EnvoyFilter %s. Error %v", desired.Name, err)
 			return err
 		}
+		klog.Infof("Creating %s...", desired.Name)
 	} else {
 
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
@@ -115,7 +116,7 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 		Data: configMapData,
 	}
 
-		return configMap
+	return configMap
 
 }
 

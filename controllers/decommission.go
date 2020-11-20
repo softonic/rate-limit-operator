@@ -56,7 +56,6 @@ func (r *RateLimitReconciler) decomissionk8sObjectResources(baseName string, con
 
 func (r *RateLimitReconciler) deleteEnvoyFilter(envoyFilter *istio_v1alpha3.EnvoyFilter) error {
 
-
 	err := r.Delete(context.TODO(), envoyFilter)
 	if err != nil {
 		klog.Infof("Cannot delete EnvoyFilter %s. Error %v", envoyFilter.Name, err)

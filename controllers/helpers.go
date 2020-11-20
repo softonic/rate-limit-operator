@@ -3,15 +3,14 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/api/core/v1"
 )
 
 func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace string, controllerNamespace string) error {
@@ -157,8 +156,6 @@ func (r *RateLimitReconciler) getEnvoyFilter(name string, namespace string) *ist
 		klog.Infof("Cannot Found EnvoyFilter %s. Error %v", name, err)
 		return &envoyFilter
 	}
-
-	klog.Infof("!!! Found EnvoyFilter %s", name)
 
 	return &envoyFilter
 

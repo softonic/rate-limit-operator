@@ -84,16 +84,23 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 
 	var output []byte
 
-	descriptorOutput := networkingv1alpha1.DescriptorsParent{}
+	descriptorOutput := networkingv1alpha1.OutputConfig{}
 
-	descriptorOutput.Parent = make([]networkingv1alpha1.Dimensions, len(rateLimitInstance.Spec.Dimensions))
+	descriptorOutput.DescriptorsParent = make([]networkingv1alpha1.DescriptorsParent, len(rateLimitInstance.Spec.Rate))
 
 	descriptorOutput.Domain = name
 
-	for k, dimension := range rateLimitInstance.Spec.Dimensions {
-		descriptorOutput.Parent[k].Key = dimension.Key
-		descriptorOutput.Parent[k].Descriptors = append(descriptorOutput.Parent[k].Descriptors, dimension.Descriptors...)
-		descriptorOutput.Parent[k].Actions = nil
+	for k, dimension := range rateLimitInstance.Spec.Rate {
+		descriptorOutput.DescriptorsParent[k].Key = dimension.Unit
+		descriptor := networkingv1alpha1.Descriptors{
+			Key: "destination_cluster",
+			RateLimit: networkingv1alpha1.RateLimitS{
+				RequestsPerUnit: dimension.RequestPerUnit,
+				Unit:            dimension.Unit,
+			},
+			Value: rateLimitInstance.Spec.DestinationCluster,
+		}
+		descriptorOutput.DescriptorsParent[k].Descriptors = append(descriptorOutput.DescriptorsParent[k].Descriptors, descriptor)
 	}
 
 	output, _ = json.Marshal(descriptorOutput)

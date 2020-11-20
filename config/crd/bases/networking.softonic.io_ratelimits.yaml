@@ -34,17 +34,22 @@ spec:
           metadata:
             type: object
           spec:
-            description: RateLimitSpec defines the desired state of RateLimit
+            description: "RateLimitSpec defines the desired state of RateLimit type
+              RateLimitSpec struct { \t// INSERT ADDITIONAL SPEC FIELDS - desired
+              state of cluster \t// Important: Run \"make\" to regenerate code after
+              modifying this file \tTargetRef        v1.ObjectReference `json:\"targetRef\"`
+              \tDimensions       DimensionsList     `json:\"dimensions\"` \tWorkloadSelector
+              map[string]string  `json:\"workloadselector\"` }"
             properties:
-              dimensions:
+              destinationCluster:
+                type: string
+              rate:
                 items:
                   properties:
-                    actions:
+                    dimensions:
                       items:
                         properties:
-                          destination_cluster:
-                            type: object
-                          request_headers:
+                          request_header:
                             properties:
                               descriptor_key:
                                 type: string
@@ -54,35 +59,18 @@ spec:
                             - descriptor_key
                             - header_name
                             type: object
-                        type: object
-                      type: array
-                    descriptors:
-                      items:
-                        properties:
-                          key:
-                            type: string
-                          rate_limit:
-                            properties:
-                              requests_per_unit:
-                                type: integer
-                              unit:
-                                type: string
-                            required:
-                            - requests_per_unit
-                            - unit
-                            type: object
-                          value:
-                            type: string
                         required:
-                        - key
-                        - rate_limit
-                        - value
+                        - request_header
                         type: object
                       type: array
-                    key:
+                    requestPerUnit:
+                      type: integer
+                    unit:
                       type: string
                   required:
-                  - key
+                  - dimensions
+                  - requestPerUnit
+                  - unit
                   type: object
                 type: array
               targetRef:
@@ -127,7 +115,8 @@ spec:
                   type: string
                 type: object
             required:
-            - dimensions
+            - destinationCluster
+            - rate
             - targetRef
             - workloadselector
             type: object

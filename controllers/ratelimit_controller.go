@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"k8s.io/apimachinery/pkg/types"
+	"os"
 
 	appsv1 "k8s.io/api/apps/v1"
 
@@ -79,12 +80,9 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	baseName := req.Name
 
-	// controllerNamespace := os.Getenv("CONTROLLER_NAMESPACE")
-	// istioNamespace := os.Getenv("ISTIO_NAMESPACE")
+	controllerNamespace := os.Getenv("CONTROLLER_NAMESPACE")
+	istioNamespace := os.Getenv("ISTIO_NAMESPACE")
 
-	istioNamespace := "istio-system"
-
-	controllerNamespace := "rate-limit-operator-system"
 
 	nameVolume := "commonconfig-volume"
 

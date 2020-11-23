@@ -1,4 +1,4 @@
-IMG ?= softonic/rate-limit-operator:0.1.1
+IMG ?= softonic/rate-limit-operator:1.0.0
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 BIN := rate-limit-operator
 PKG := github.com/softonic/rate-limit-operator
@@ -53,8 +53,12 @@ deploy: make-manifest
 	kubectl apply -f manifest.yaml
 
 .PHONY: helm-deploy
-helm-deploy: helm-chart
-	helm upgrade --install $(RELEASE_NAME) --namespace $(NAMESPACE) --set "image.tag=$(VERSION)" -f chart/rate-limit-operator/values.yaml -f chart/rate-limit-operator/secret.values.yaml chart/rate-limit-operator
+helm-deploy: install-crd
+	helm upgrade --install $(RELEASE_NAME) --namespace $(NAMESPACE) --set "image.tag=$(VERSION)" -f chart/rate-limit-operator/values.yaml  chart/rate-limit-operator
+
+.PHONY: install-crd
+install-crd:
+	cp config/crd/bases/networking.softonic.io_ratelimits.yaml chart/rate-limit-operator/crds/networking.softonic.io_ratelimits.yaml
 
 # Run tests
 .PHONY: test

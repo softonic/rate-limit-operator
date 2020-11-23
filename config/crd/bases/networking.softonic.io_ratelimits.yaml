@@ -110,15 +110,10 @@ spec:
                     description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                     type: string
                 type: object
-              workloadselector:
-                additionalProperties:
-                  type: string
-                type: object
             required:
             - destinationCluster
             - rate
             - targetRef
-            - workloadselector
             type: object
           status:
             description: RateLimitStatus defines the observed state of RateLimit

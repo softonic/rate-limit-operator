@@ -6,20 +6,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
-  name: virtualservices.networking.istio.io
+  name: gateways.networking.istio.io
 spec:
   group: networking.istio.io
   names:
-    kind: VirtualService
-    listKind: VirtualServiceList
-    plural: virtualservices
-    singular: virtualservice
+    kind: Gateway
+    listKind: GatewayList
+    plural: gateways
+    singular: gateway
   scope: Namespaced
   versions:
   - name: istio_v1beta1
     schema:
       openAPIV3Schema:
-        description: VirtualService is the Schema for the virtualservices API
+        description: Gateway is the Schema for the Gateways API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -34,21 +34,14 @@ spec:
           metadata:
             type: object
           spec:
-            description: VirtualServiceSpec defines the desired state of VirtualService
             properties:
-              gateways:
-                description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                  Important: Run "make" to regenerate code after modifying this file'
-                items:
+              selector:
+                additionalProperties:
                   type: string
-                type: array
-              hosts:
-                items:
-                  type: string
-                type: array
+                type: object
             type: object
           status:
-            description: VirtualServiceStatus defines the observed state of VirtualService
+            description: GatewayStatus defines the observed state of Gateway
             type: object
         type: object
     served: true

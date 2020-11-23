@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -241,4 +242,34 @@ func (r *RateLimitReconciler) getDeployment(controllerNamespace string, name str
 	//klog.Infof("Getting this deployment %v", deploy)
 
 	return *deploy, nil
+}
+
+func (r *RateLimitReconciler) getVirtualService(namespace string, name string) (*istio_v1beta1.VirtualService, error) {
+
+	virtualService := &istio_v1beta1.VirtualService{}
+	err := r.Get(context.TODO(), types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}, virtualService)
+	if err != nil {
+		return nil, err
+	}
+
+	return virtualService, nil
+
+}
+
+func (r *RateLimitReconciler) getGateway(namespace string, name string) (*istio_v1beta1.Gateway, error) {
+
+	Gateway := &istio_v1beta1.Gateway{}
+	err := r.Get(context.TODO(), types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}, Gateway)
+	if err != nil {
+		return nil, err
+	}
+
+	return Gateway, nil
+
 }

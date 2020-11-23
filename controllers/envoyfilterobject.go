@@ -1,13 +1,10 @@
 package controllers
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
-	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	// "os"
 	"strings"
@@ -35,14 +32,22 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 	namespace := rateLimitInstance.Spec.TargetRef.Namespace
 	nameVirtualService := rateLimitInstance.Spec.TargetRef.Name
 
-	virtualService := &istio_v1beta1.VirtualService{}
-	err := r.Get(context.TODO(), types.NamespacedName{
-		Namespace: namespace,
-		Name:      nameVirtualService,
-	}, virtualService)
+	virtualService, err := r.getVirtualService(namespace, nameVirtualService)
 	if err != nil {
 		klog.Infof("Virtualservice does not exists")
 	}
+
+	gatewayIngress := strings.Split(virtualService.Spec.Gateways[0], "/")
+
+	namespaceVirtualService := gatewayIngress[0]
+	nameGatewayVirtualService := gatewayIngress[1]
+
+	Gateway, err := r.getGateway(namespaceVirtualService, nameGatewayVirtualService)
+	if err != nil {
+		klog.Infof("Gateway does not exists")
+	}
+
+	gatewaySelector := Gateway.Spec.Selector
 
 	firstElementHosts := strings.Join(virtualService.Spec.Hosts, "")
 
@@ -60,7 +65,7 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	labels := make(map[string]string)
 
-	labels = rateLimitInstance.Spec.WorkloadSelector
+	labels = gatewaySelector
 
 	envoyFilterObjectCluster := EnvoyFilterObject{
 		Operation:             "ADD",

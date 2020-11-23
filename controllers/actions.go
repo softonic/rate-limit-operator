@@ -22,12 +22,13 @@ func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilte
 		Name:      nameEnvoyFilter,
 	}, found)
 	if err != nil {
-		klog.Infof("Cannot Found EnvoyFilter %s. Error %v", found.Name, err)
+		klog.Infof("Cannot Found EnvoyFilter %s before creating. Error %v", found.Name, err)
 		err = r.Create(context.TODO(), &desired)
 		if err != nil {
 			klog.Infof("Cannot Create EnvoyFilter %s. Error %v", desired.Name, err)
 			return err
 		}
+		klog.Infof("Creating %s...", desired.Name)
 	} else {
 
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
@@ -83,16 +84,23 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 
 	var output []byte
 
-	descriptorOutput := networkingv1alpha1.DescriptorsParent{}
+	descriptorOutput := networkingv1alpha1.OutputConfig{}
 
-	descriptorOutput.Parent = make([]networkingv1alpha1.Dimensions, len(rateLimitInstance.Spec.Dimensions))
+	descriptorOutput.DescriptorsParent = make([]networkingv1alpha1.DescriptorsParent, len(rateLimitInstance.Spec.Rate))
 
 	descriptorOutput.Domain = name
 
-	for k, dimension := range rateLimitInstance.Spec.Dimensions {
-		descriptorOutput.Parent[k].Key = dimension.Key
-		descriptorOutput.Parent[k].Descriptors = append(descriptorOutput.Parent[k].Descriptors, dimension.Descriptors...)
-		descriptorOutput.Parent[k].Actions = nil
+	for k, dimension := range rateLimitInstance.Spec.Rate {
+		descriptorOutput.DescriptorsParent[k].Key = dimension.Unit
+		descriptor := networkingv1alpha1.Descriptors{
+			Key: "destination_cluster",
+			RateLimit: networkingv1alpha1.RateLimitS{
+				RequestsPerUnit: dimension.RequestPerUnit,
+				Unit:            dimension.Unit,
+			},
+			Value: rateLimitInstance.Spec.DestinationCluster,
+		}
+		descriptorOutput.DescriptorsParent[k].Descriptors = append(descriptorOutput.DescriptorsParent[k].Descriptors, descriptor)
 	}
 
 	output, _ = json.Marshal(descriptorOutput)
@@ -115,7 +123,7 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 		Data: configMapData,
 	}
 
-		return configMap
+	return configMap
 
 }
 

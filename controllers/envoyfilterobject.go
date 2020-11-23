@@ -143,22 +143,32 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 
 	var output []byte
 
+	actionsOutput := networkingv1alpha1.OutputRatelimitsEnvoyFilter{}
+
 	var Actions []networkingv1alpha1.Actions
 
-	var Dimensions []networkingv1alpha1.Dimensions
+	actionsOutput.RateLimits = make([]networkingv1alpha1.RateLimitsEF, len(rateLimitInstance.Spec.Rate))
 
-	Dimensions = make([]networkingv1alpha1.Dimensions, len(rateLimitInstance.Spec.Dimensions))
+	actions := make([]networkingv1alpha1.Actions, len(rateLimitInstance.Spec.Rate))
 
+	//dimensionarray := make([]networkingv1alpha1.Dimensions, len(rateLimitInstance.Spec.Rate))
 
-	for k, dimension := range rateLimitInstance.Spec.Dimensions {
-		//Dimensions = append(Dimensions, dimension)
-		Dimensions[k].Actions = append(Dimensions[k].Actions, dimension.Actions[0])
-		Dimensions[k].Key = ""
-		Dimensions[k].Descriptors = nil
+	for k, dimension := range rateLimitInstance.Spec.Rate {
+
+		actions = []networkingv1alpha1.Actions{
+			{
+				RequestHeaders: networkingv1alpha1.RequestHeaders{
+					DescriptorKey: dimension.Unit,
+					HeaderName:    dimension.Dimensions[len(dimension.Dimensions)-1].RequestHeader.HeaderName,
+				},
+			},
+		}
+
+		actionsOutput.RateLimits[k].Actions = actions
+
 	}
 
-
-	for _, dimension := range Dimensions {
+	for _, dimension := range actionsOutput.RateLimits {
 		Actions = append(Actions, dimension.Actions...)
 	}
 

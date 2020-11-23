@@ -82,7 +82,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	controllerNamespace := os.Getenv("CONTROLLER_NAMESPACE")
 	istioNamespace := os.Getenv("ISTIO_NAMESPACE")
-
+	deploymentName := os.Getenv("DEPLOYMENT_NAME")
 
 	nameVolume := "commonconfig-volume"
 
@@ -90,7 +90,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// INIT RESOURCES
 
-	r.getK8sResources(baseName, istioNamespace, istioNamespace)
+	r.getK8sResources(baseName, istioNamespace, istioNamespace, deploymentName)
 
 	volumes := constructVolumes(nameVolume, baseName)
 

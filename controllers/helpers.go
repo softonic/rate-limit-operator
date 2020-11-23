@@ -14,7 +14,7 @@ import (
 	"k8s.io/api/core/v1"
 )
 
-func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace string, controllerNamespace string) error {
+func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace string, controllerNamespace string, deploymentName string) error {
 
 	r.getEnvoyFilters(baseName, istioNamespace)
 
@@ -28,9 +28,9 @@ func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace st
 
 	//var deploy *appsv1.Deployment
 
-	r.DeploymentRL, err = r.getDeployment(istioNamespace, "istio-system-ratelimit")
+	r.DeploymentRL, err = r.getDeployment(istioNamespace, deploymentName)
 	if err != nil {
-		klog.Infof("Cannot Found Deployment %s. Error %v", "istio-system-ratelimit", err)
+		klog.Infof("Cannot Found Deployment %s. Error %v", deploymentName, err)
 		return err
 	}
 
@@ -231,7 +231,7 @@ func (r *RateLimitReconciler) getDeployment(controllerNamespace string, name str
 
 	deploy := &appsv1.Deployment{}
 	err := r.Get(context.TODO(), client.ObjectKey{
-		Namespace: "istio-system",
+		Namespace: "controllerNamespace",
 		Name:      name,
 	}, deploy)
 	if err != nil {

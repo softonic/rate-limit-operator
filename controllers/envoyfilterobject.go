@@ -6,6 +6,8 @@ import (
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	"k8s.io/klog"
+	"os"
+
 	// "os"
 	"strings"
 )
@@ -25,7 +27,8 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	// controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
 
-	istioNamespace := "istio-system"
+
+	istioNamespace := os.Getenv("ISTIO_NAMESPACE")
 
 	jsonActions := retrieveJsonActions(rateLimitInstance, baseName)
 

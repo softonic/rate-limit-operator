@@ -47,6 +47,8 @@ spec:
             value: {{ .Values.controllerNamespace }}
           - name: ADDRESS_RATELIMIT_ENDPOINT
             value: {{ .Values.addressRatelimitEndpoint }}
+          - name: DEPLOYMENT_NAME
+            value: {{ .Values.deploymentName }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         name: manager
         resources:

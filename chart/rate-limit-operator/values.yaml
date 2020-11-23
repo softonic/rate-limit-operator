@@ -11,6 +11,7 @@ image:
 
 istioNamespace: "istio-system"
 controllerNamespace: "rate-limit-operator-system"
+deploymentName: "rate-limit-operator-ratelimit"
 
 addressRatelimitEndpoint: "istio-system-ratelimit.istio-system.svc.cluster.local"
 

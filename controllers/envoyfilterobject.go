@@ -25,10 +25,9 @@ type EnvoyFilterObject struct {
 
 func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance networkingv1alpha1.RateLimit, baseName string, controllerNamespace string) error {
 
-	// controllerNamespace := os.Getenv("ISTIO_NAMESPACE")
-
 
 	istioNamespace := os.Getenv("ISTIO_NAMESPACE")
+
 
 	jsonActions := retrieveJsonActions(rateLimitInstance, baseName)
 

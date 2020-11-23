@@ -86,15 +86,6 @@ type Rate struct {
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// RateLimitSpec defines the desired state of RateLimit
-/*type RateLimitSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	TargetRef        v1.ObjectReference `json:"targetRef"`
-	Dimensions       DimensionsList     `json:"dimensions"`
-	WorkloadSelector map[string]string  `json:"workloadselector"`
-}
-*/
 type RateLimitSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file

@@ -26,40 +26,37 @@ import (
 // NOTE: This type is used only to have a VirtualService runtime.Object (Istio's is not). we are only interested in
 // Hosts property. This is not going to be used as CR, could be moved somewherelese
 
-// VirtualServiceSpec defines the desired state of VirtualService
-type VirtualServiceSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	Gateways []string `json:"gateways,omitempty"`
-	Hosts    []string `json:"hosts,omitempty"`
+type GatewaySpec struct {
+	Selector map[string]string `json:"selector,omitempty"`
 }
 
-// VirtualServiceStatus defines the observed state of VirtualService
-type VirtualServiceStatus struct {
+// GatewayStatus defines the observed state of Gateway
+type GatewayStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true
 
-// VirtualService is the Schema for the virtualservices API
-type VirtualService struct {
+// Gateway is the Schema for the Gateways API
+type Gateway struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   VirtualServiceSpec   `json:"spec,omitempty"`
-	Status VirtualServiceStatus `json:"status,omitempty"`
+	Spec   GatewaySpec   `json:"spec,omitempty"`
+	Status GatewayStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// VirtualServiceList contains a list of VirtualService
-type VirtualServiceList struct {
+// GatewayList contains a list of Gateway
+type GatewayList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VirtualService `json:"items"`
+	Items           []Gateway `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&VirtualService{}, &VirtualServiceList{})
+	SchemeBuilder.Register(&Gateway{}, &GatewayList{})
+
 }

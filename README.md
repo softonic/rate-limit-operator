@@ -93,8 +93,6 @@ spec:
   - request_header:
       descriptor_key: remote_address
       header_name: x-custom-ip
-  workloadselector:
-    app: istio-ingressgateway
 ```
 
 * targetRef will point to a VS that will have the host field that you will need in your envoyfilter in order to apply the routing

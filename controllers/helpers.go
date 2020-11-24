@@ -231,7 +231,7 @@ func (r *RateLimitReconciler) getDeployment(controllerNamespace string, name str
 
 	deploy := &appsv1.Deployment{}
 	err := r.Get(context.TODO(), client.ObjectKey{
-		Namespace: "controllerNamespace",
+		Namespace: controllerNamespace,
 		Name:      name,
 	}, deploy)
 	if err != nil {

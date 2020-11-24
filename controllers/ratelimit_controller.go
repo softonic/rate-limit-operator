@@ -92,7 +92,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// INIT RESOURCES
 
-	r.getK8sResources(baseName, istioNamespace, istioNamespace, deploymentName)
+	r.getK8sResources(baseName, istioNamespace, controllerNamespace, deploymentName)
 
 	volumes := constructVolumes(nameVolume, baseName)
 

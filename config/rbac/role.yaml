@@ -21,6 +21,18 @@ rules:
 - apiGroups:
   - '*'
   resources:
+  - gateways
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
   - virtualservices
   verbs:
   - create

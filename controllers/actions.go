@@ -94,7 +94,7 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 		descriptorOutput.DescriptorsParent[k].Key = dimension.Unit
 		descriptor := networkingv1alpha1.Descriptors{
 			Key: "destination_cluster",
-			RateLimit: networkingv1alpha1.RateLimitS{
+			RateLimit: networkingv1alpha1.RateLimitPerDescriptor{
 				RequestsPerUnit: dimension.RequestPerUnit,
 				Unit:            dimension.Unit,
 			},

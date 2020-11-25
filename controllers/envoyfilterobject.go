@@ -154,7 +154,7 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 
 	var Actions []networkingv1alpha1.Actions
 
-	actionsOutput.RateLimits = make([]networkingv1alpha1.RateLimitsEF, len(rateLimitInstance.Spec.Rate))
+	actionsOutput.RateLimits = make([]networkingv1alpha1.ActionsEnvoyFilter, len(rateLimitInstance.Spec.Rate))
 
 	actions := make([]networkingv1alpha1.Actions, len(rateLimitInstance.Spec.Rate))
 

@@ -45,11 +45,11 @@ func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilte
 
 }
 
-func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, istioNamespace string, baseName string) error {
+func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, controllerNamespace string, baseName string) error {
 
 	var err error
 
-	cm := r.generateConfigMap(rateLimitInstance, istioNamespace, baseName)
+	cm := r.generateConfigMap(rateLimitInstance, controllerNamespace, baseName)
 	if err != nil {
 		klog.Infof("Cannot generate %v, Error: %v", cm, err)
 		return err
@@ -57,7 +57,7 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 
 	found := v1.ConfigMap{}
 
-	found, err = r.getConfigMap(baseName, istioNamespace)
+	found, err = r.getConfigMap(baseName, controllerNamespace)
 	if err != nil {
 		err = r.Create(context.TODO(), &cm)
 		if err != nil {
@@ -78,7 +78,7 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 
 }
 
-func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, istioNamespace string, name string) v1.ConfigMap {
+func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, controllerNamespace string, name string) v1.ConfigMap {
 
 	configMapData := make(map[string]string)
 
@@ -118,7 +118,7 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: istioNamespace,
+			Namespace: controllerNamespace,
 		},
 		Data: configMapData,
 	}

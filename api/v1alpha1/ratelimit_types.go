@@ -27,6 +27,7 @@ type OutputRatelimitsEnvoyFilter struct {
 	RateLimits []ActionsEnvoyFilter `yaml:"rate_limits"`
 }
 
+// These array will be the values you place in the envoyfilterRoute
 type ActionsEnvoyFilter struct {
 	Actions []Actions `yaml:"actions"`
 }
@@ -42,7 +43,6 @@ type Actions struct {
 }
 
 type DestinationClusterHeader struct{}
-
 
 type OutputConfig struct {
 	DescriptorsParent []DescriptorsParent `json:"descriptors"`

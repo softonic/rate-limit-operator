@@ -55,9 +55,8 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	nameVhost := firstElementHosts + ":80"
 
-	// address := os.Getenv("ADDRESS_RATELIMIT_ENDPOINT")
+	address := os.Getenv("ADDRESS_RATELIMIT_ENDPOINT")
 
-	address := "istio-system-ratelimit"
 
 	fqdn := address + "." + controllerNamespace + ".svc.cluster.local"
 

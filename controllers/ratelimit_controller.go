@@ -123,7 +123,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err = r.prepareUpdateEnvoyFilterObjects(*rateLimitInstance, baseName, controllerNamespace)
 
 	// Create ConfigMap Ratelimit
-	err = r.CreateOrUpdateConfigMap(rateLimitInstance, istioNamespace, baseName)
+	err = r.CreateOrUpdateConfigMap(rateLimitInstance, controllerNamespace, baseName)
 
 	// Update deployment with ConfigMap values
 

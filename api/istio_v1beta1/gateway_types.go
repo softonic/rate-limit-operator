@@ -23,8 +23,8 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// NOTE: This type is used only to have a VirtualService runtime.Object (Istio's is not). we are only interested in
-// Hosts property. This is not going to be used as CR, could be moved somewherelese
+// NOTE: This type is used only to have a Gateway runtime.Object (Istio's is not). we are only interested in
+// Selector property. This is not going to be used as CR, could be moved somewherelese
 
 type GatewaySpec struct {
 	Selector map[string]string `json:"selector,omitempty"`

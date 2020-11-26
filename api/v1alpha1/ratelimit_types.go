@@ -21,15 +21,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//type RateLimitDimension map[string]string
 
-//type Dimensions map[string]RateLimitDimension
-
+// These array will be the values you place in the envoyfilterRoute
 type OutputRatelimitsEnvoyFilter struct {
-	RateLimits []RateLimitsEF `yaml:"rate_limits"`
+	RateLimits []ActionsEnvoyFilter `yaml:"rate_limits"`
 }
 
-type RateLimitsEF struct {
+// These array will be the values you place in the envoyfilterRoute
+type ActionsEnvoyFilter struct {
 	Actions []Actions `yaml:"actions"`
 }
 
@@ -45,24 +44,17 @@ type Actions struct {
 
 type DestinationClusterHeader struct{}
 
-/*
-type DescriptorsS struct {
-	Key         string        `json:"key"`
-	Descriptors []Descriptors `json:"descriptors,omitempty"`
-	Actions     []Actions     `json:"actions,omitempty"`
-}*/
-
 type OutputConfig struct {
 	DescriptorsParent []DescriptorsParent `json:"descriptors"`
 	Domain            string              `json:"domain"`
 }
-type RateLimitS struct {
+type RateLimitPerDescriptor struct {
 	RequestsPerUnit int    `json:"requests_per_unit"`
 	Unit            string `json:"unit"`
 }
 type Descriptors struct {
 	Key       string     `json:"key"`
-	RateLimit RateLimitS `json:"rate_limit"`
+	RateLimit RateLimitPerDescriptor `json:"rate_limit"`
 	Value     string     `json:"value"`
 }
 type DescriptorsParent struct {

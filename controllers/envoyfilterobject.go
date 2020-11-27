@@ -25,9 +25,7 @@ type EnvoyFilterObject struct {
 
 func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance networkingv1alpha1.RateLimit, baseName string, controllerNamespace string) error {
 
-
 	istioNamespace := os.Getenv("ISTIO_NAMESPACE")
-
 
 	jsonActions := retrieveJsonActions(rateLimitInstance, baseName)
 
@@ -56,7 +54,6 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 	nameVhost := firstElementHosts + ":80"
 
 	address := os.Getenv("ADDRESS_RATELIMIT_ENDPOINT")
-
 
 	fqdn := address + "." + controllerNamespace + ".svc.cluster.local"
 
@@ -112,10 +109,11 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 		return err
 	}
 
-	initJson := []byte(`{"route":{"rate_limits":[{"actions":`)
-	finalJson := []byte(`}]}}`)
+	initJson := []byte(`{"route":`)
+	finalJson := []byte(`}`)
 
 	intermediateJson := append(initJson, jsonActions...)
+
 
 	rawConfigHTTPRoute := json.RawMessage(append(intermediateJson, finalJson...))
 
@@ -145,15 +143,19 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 }
 
+func BytesToString(data []byte) string {
+	return string(data[:])
+}
+
 func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseName string) []byte {
 
 	var output []byte
 
 	actionsOutput := networkingv1alpha1.OutputRatelimitsEnvoyFilter{}
 
-	var Actions []networkingv1alpha1.Actions
+	//var Actions []networkingv1alpha1.Actions
 
-	actionsOutput.RateLimits = make([]networkingv1alpha1.ActionsEnvoyFilter, len(rateLimitInstance.Spec.Rate))
+	actionsOutput.RateLimits = make([]networkingv1alpha1.RateLimits, len(rateLimitInstance.Spec.Rate))
 
 	actions := make([]networkingv1alpha1.Actions, len(rateLimitInstance.Spec.Rate))
 
@@ -162,11 +164,15 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 	for k, dimension := range rateLimitInstance.Spec.Rate {
 
 		actions = []networkingv1alpha1.Actions{
+
 			{
-				RequestHeaders: networkingv1alpha1.RequestHeaders{
+				RequestHeaders: &networkingv1alpha1.RequestHeaders{
 					DescriptorKey: dimension.Unit,
 					HeaderName:    dimension.Dimensions[len(dimension.Dimensions)-1].RequestHeader.HeaderName,
 				},
+			},
+			{
+				DestinationCluster: &networkingv1alpha1.DestinationClusterHeader{},
 			},
 		}
 
@@ -174,11 +180,11 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 
 	}
 
-	for _, dimension := range actionsOutput.RateLimits {
+	/*	for _, dimension := range actionsOutput.RateLimitsActions {
 		Actions = append(Actions, dimension.Actions...)
-	}
+	}*/
 
-	output, _ = json.Marshal(Actions)
+	output, _ = json.Marshal(actionsOutput)
 
 	return output
 

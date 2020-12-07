@@ -79,7 +79,7 @@ type RateLimitSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	TargetRef          v1.ObjectReference `json:"targetRef"`
-	DestinationCluster string             `json:"destinationCluster"`
+	DestinationCluster string             `json:"destinationCluster,omitempty"`
 	Rate               []Rate             `json:"rate"`
 }
 

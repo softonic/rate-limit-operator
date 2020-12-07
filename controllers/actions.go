@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/ghodss/yaml"
+	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
+	"errors"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,7 +51,7 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 
 	var err error
 
-	cm := r.generateConfigMap(rateLimitInstance, controllerNamespace, baseName)
+	cm, err := r.generateConfigMap(rateLimitInstance, controllerNamespace, baseName)
 	if err != nil {
 		klog.Infof("Cannot generate %v, Error: %v", cm, err)
 		return err
@@ -78,9 +80,11 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 
 }
 
-func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, controllerNamespace string, name string) v1.ConfigMap {
+func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, controllerNamespace string, name string) (v1.ConfigMap, error) {
 
 	configMapData := make(map[string]string)
+
+	var err error
 
 	var output []byte
 
@@ -90,6 +94,22 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 
 	descriptorOutput.Domain = name
 
+	// get Destination Cluster
+
+	nameVirtualService := rateLimitInstance.Spec.TargetRef.Name
+
+	var value string
+
+	if rateLimitInstance.Spec.DestinationCluster != "" {
+		value = rateLimitInstance.Spec.DestinationCluster
+	} else {
+		value, err = r.getDestinationClusterFromVirtualService("istio-system", nameVirtualService)
+		if err != nil {
+			klog.Infof("Cannot generate configmap as we cannot find a host destination cluster")
+			return v1.ConfigMap{}, err
+		}
+	}
+
 	for k, dimension := range rateLimitInstance.Spec.Rate {
 		descriptorOutput.DescriptorsParent[k].Key = dimension.Unit
 		descriptor := networkingv1alpha1.Descriptors{
@@ -98,7 +118,7 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 				RequestsPerUnit: dimension.RequestPerUnit,
 				Unit:            dimension.Unit,
 			},
-			Value: rateLimitInstance.Spec.DestinationCluster,
+			Value: value,
 		}
 		descriptorOutput.DescriptorsParent[k].Descriptors = append(descriptorOutput.DescriptorsParent[k].Descriptors, descriptor)
 	}
@@ -123,7 +143,38 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 		Data: configMapData,
 	}
 
-	return configMap
+	return configMap,nil
+
+}
+
+func (r *RateLimitReconciler) getDestinationClusterFromVirtualService(namespace string, nameVirtualService string) (string, error) {
+
+	virtualService, err := r.getVirtualService(namespace, nameVirtualService)
+	if err != nil {
+		klog.Infof("Virtualservice does not exists")
+		return "", err
+	}
+
+	subset := ""
+	destination := ""
+
+	for k,routes := range virtualService.Spec.Http {
+		if routes.Route[k].Destination.Host != "" {
+			destination = routes.Route[k].Destination.Host
+			subset = routes.Route[k].Destination.Subset
+		}
+	}
+
+	if destination == "" {
+		return "", errors.New("cannot find any suitable destinationCluster")
+	}
+
+	//outbound|80|prod|server.digitaltrends-v1.svc.cluster.local
+
+
+	destinationCluster := "outbound|80|" + subset + "|" + destination
+
+	return destinationCluster, errors.New("cannot find any suitable destinationCluster")
 
 }
 

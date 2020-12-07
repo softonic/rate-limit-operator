@@ -26,12 +26,26 @@ import (
 // NOTE: This type is used only to have a VirtualService runtime.Object (Istio's is not). we are only interested in
 // Hosts property. This is not going to be used as CR, could be moved somewherelese
 
+type Destination struct {
+	Host   string   `json:"host,omitempty"`
+	Subset string `json:"subset,omitempty"`
+}
+
+type HTTPRouteDestination struct {
+	Destination *Destination `json:"destination,omitempty"`
+}
+
+type HTTPRoute struct {
+	Route []*HTTPRouteDestination `json:"route,omitempty"`
+}
+
 // VirtualServiceSpec defines the desired state of VirtualService
 type VirtualServiceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	Gateways []string `json:"gateways,omitempty"`
 	Hosts    []string `json:"hosts,omitempty"`
+	Http     []*HTTPRoute `json:"http,omitempty"`
 }
 
 // VirtualServiceStatus defines the observed state of VirtualService

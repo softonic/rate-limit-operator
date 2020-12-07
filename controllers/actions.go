@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/ghodss/yaml"
-	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
 	"errors"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"

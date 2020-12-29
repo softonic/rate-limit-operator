@@ -77,28 +77,29 @@ Here is an example you can start with
 apiVersion: networking.softonic.io/v1alpha1
 kind: RateLimit
 metadata:
-  name: ratelimit-sample
   finalizers:
   - ratelimit.networking.softonic.io
+  name: test
 spec:
+  destinationCluster: outbound|80||server.nameSpaceTarget.svc.cluster.local
+  rate:
+  - dimensions:
+    - request_header:
+        descriptor_key: remote_address
+        header_name: x-custom-user-ip
+    requestPerUnit: 100
+    unit: second
   targetRef:
-    apiVersion: "networking.istio.io/v1alpha3"
-    kind:       VirtualService
-    name:       vs-test
-    namespace:  ratelimitoperatortest
-  destinationCluster: "outbound|80||chicken-head-nginx.chicken-head.svc.cluster.local"
-  unit: seconds
-  requestPerUnit: 100
-  dimensions:
-  - request_header:
-      descriptor_key: remote_address
-      header_name: x-custom-ip
+    apiVersion: networking.istio.io/v1alpha3
+    kind: VirtualService
+    name: nameVS
+    namespace: nameSpaceTarget
 ```
 
+
 * targetRef will point to a VS that will have the host field that you will need in your envoyfilter in order to apply the routing
-* destination cluster is the Cluster ( here cluster is referring to the concept of cluster in the envoy/istio language ) 
+* destinationCluster ( optional ) is the Cluster ( here cluster is referring to the concept of cluster in the envoy/istio language ) 
 * following configuration refer to what to limit. In this case we are limiting 100 per second per x-custom-ip
-* workloadselector mean that will set the envoyfilters in the ingressgateway ( you need to have these labels in the ingressgateway deployment )
 
 
 # Diagram

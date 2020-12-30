@@ -131,6 +131,10 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// Update deployment with ConfigMap values
 
 	err = r.UpdateDeployment(volumeProjectedSources, volumes,controllerNamespace,deploymentName)
+	if err != nil {
+		// try again
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 

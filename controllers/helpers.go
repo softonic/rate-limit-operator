@@ -20,7 +20,7 @@ func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace st
 
 	var err error
 
-	r.configMapRateLimit, err = r.getConfigMap(baseName, istioNamespace)
+	r.configMapRateLimit, err = r.getConfigMap(baseName, controllerNamespace)
 	if err != nil {
 		klog.Infof("Cannot Found ConfigMap in the getk8sresource func %s. Error %v", baseName, err)
 

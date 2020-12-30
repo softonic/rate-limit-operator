@@ -187,7 +187,7 @@ func (r *RateLimitReconciler) UpdateDeployment(volumeProjectedSources []v1.Volum
 
 	err = r.Update(context.TODO(), &r.DeploymentRL)
 	if err != nil {
-		klog.Infof("Cannot Update Deployment %s. Error %v", "istio-system-ratelimit", err)
+		klog.Infof("Cannot Update Deployment %s. Error %v", r.DeploymentRL.Name, err)
 		return err
 	}
 
@@ -222,6 +222,7 @@ func (r *RateLimitReconciler) addVolumeFromDeployment(volumeProjectedSources []v
 					if sourceToApply.ConfigMap.Name == sourceAlreadyExists.ConfigMap.Name {
 						// this configmap is already in the volume projected sources, not need to include
 						exists = true
+						break
 					} else {
 						// there is no coincidence
 						exists = false

@@ -177,9 +177,17 @@ func (r *RateLimitReconciler) getDestinationClusterFromVirtualService(namespace 
 
 }
 
-func (r *RateLimitReconciler) UpdateDeployment(volumeProjectedSources []v1.VolumeProjection, volumes []v1.Volume) error {
+func (r *RateLimitReconciler) UpdateDeployment(volumeProjectedSources []v1.VolumeProjection, volumes []v1.Volume, controllerNamespace string, deploymentName string) error {
 
-	err := r.addVolumeFromDeployment(volumeProjectedSources, volumes)
+	var err error
+
+	r.DeploymentRL, err = r.getDeployment(controllerNamespace, deploymentName)
+	if err != nil {
+		klog.Infof("Cannot Found Deployment %s. Error %v", deploymentName, err)
+		return err
+	}
+
+	err = r.addVolumeFromDeployment(volumeProjectedSources, volumes)
 	if err != nil {
 		klog.Infof("Cannot add VolumeSource from deploy %v. Error %v", r.DeploymentRL, err)
 		return err

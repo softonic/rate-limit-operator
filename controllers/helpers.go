@@ -26,13 +26,6 @@ func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace st
 
 	}
 
-	//var deploy *appsv1.Deployment
-
-	r.DeploymentRL, err = r.getDeployment(controllerNamespace, deploymentName)
-	if err != nil {
-		klog.Infof("Cannot Found Deployment %s. Error %v", deploymentName, err)
-		return err
-	}
 
 	return nil
 }

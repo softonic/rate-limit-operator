@@ -20,6 +20,7 @@ import (
 	"context"
 	"k8s.io/apimachinery/pkg/types"
 	"os"
+	"sync"
 
 	appsv1 "k8s.io/api/apps/v1"
 
@@ -45,6 +46,7 @@ type RateLimitReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 	K8sObject
+	mutex     sync.RWMutex
 }
 
 type K8sObject struct {

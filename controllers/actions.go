@@ -181,6 +181,9 @@ func (r *RateLimitReconciler) UpdateDeployment(volumeProjectedSources []v1.Volum
 
 	var err error
 
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	r.DeploymentRL, err = r.getDeployment(controllerNamespace, deploymentName)
 	if err != nil {
 		klog.Infof("Cannot Found Deployment %s. Error %v", deploymentName, err)
@@ -193,11 +196,14 @@ func (r *RateLimitReconciler) UpdateDeployment(volumeProjectedSources []v1.Volum
 		return err
 	}
 
+
 	err = r.Update(context.TODO(), &r.DeploymentRL)
 	if err != nil {
 		klog.Infof("Cannot Update Deployment %s. Error %v", r.DeploymentRL.Name, err)
 		return err
 	}
+
+
 
 	return nil
 

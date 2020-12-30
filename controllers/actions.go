@@ -197,6 +197,9 @@ func (r *RateLimitReconciler) UpdateDeployment(volumeProjectedSources []v1.Volum
 
 func (r *RateLimitReconciler) addVolumeFromDeployment(volumeProjectedSources []v1.VolumeProjection, volumes []v1.Volume) error {
 
+	
+	var volumeProjectedSourcesToApply []v1.VolumeProjection
+
 	defaultVolumeMount := []v1.VolumeMount{
 		{
 			Name:      "commonconfig-volume",
@@ -211,9 +214,26 @@ func (r *RateLimitReconciler) addVolumeFromDeployment(volumeProjectedSources []v
 	//}
 
 	count := 0
+	exists := true
 	for _, v := range r.DeploymentRL.Spec.Template.Spec.Volumes {
 		if v.Name == "commonconfig-volume" {
-			v.VolumeSource.Projected.Sources = append(v.VolumeSource.Projected.Sources, volumeProjectedSources...)
+			for _,sourceToApply := range volumeProjectedSources {
+				for _,sourceAlreadyExists := range v.VolumeSource.Projected.Sources {
+					if sourceToApply.ConfigMap.Name == sourceAlreadyExists.ConfigMap.Name {
+						// this configmap is already in the volume projected sources, not need to include
+						exists = true
+					} else {
+						// there is no coincidence
+						exists = false
+					}
+				}
+				// If the sourcetoApply does not exists in the already mounted sources, append to the slice volumeProjectedSourcesToApply
+				if exists == false {
+					volumeProjectedSourcesToApply = append(volumeProjectedSourcesToApply,sourceToApply)
+				}
+			}
+			// append to the projected sources slice that will be update in the deployment
+			v.VolumeSource.Projected.Sources = append(v.VolumeSource.Projected.Sources, volumeProjectedSourcesToApply...)
 		} else {
 			count++
 			//deploy.Spec.Template.Spec.Volumes = append(deploy.Spec.Template.Spec.Volumes, volumes...)

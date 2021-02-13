@@ -46,7 +46,7 @@ type RateLimitReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 	K8sObject
-	mutex     sync.RWMutex
+	mutex sync.RWMutex
 }
 
 type K8sObject struct {
@@ -88,7 +88,6 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	istioNamespace := os.Getenv("ISTIO_NAMESPACE")
 	deploymentName := os.Getenv("DEPLOYMENT_NAME")
 
-
 	nameVolume := "commonconfig-volume"
 
 	finalizer := "ratelimit.networking.softonic.io"
@@ -101,6 +100,8 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	volumeProjectedSources := constructVolumeSources(baseName)
 
+	klog.Info("The volumeProjectedSources is: %v", volumeProjectedSources)
+
 	// DECOMMISSION
 
 	beingDeleted := rateLimitInstance.GetDeletionTimestamp() != nil
@@ -111,7 +112,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 			err = r.decomissionk8sObjectResources(baseName, controllerNamespace, istioNamespace)
 
-			err = r.decomissionDeploymentVolumes(volumeProjectedSources, volumes)
+			err = r.decomissionDeploymentVolumes(volumeProjectedSources, volumes, controllerNamespace, deploymentName)
 
 			rateLimitInstance.SetFinalizers(remove(rateLimitInstance.GetFinalizers(), finalizer))
 			err = r.Update(context.TODO(), rateLimitInstance)
@@ -126,14 +127,16 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err = r.prepareUpdateEnvoyFilterObjects(*rateLimitInstance, baseName, controllerNamespace)
 
 	// Create ConfigMap Ratelimit
-	err = r.CreateOrUpdateConfigMap(rateLimitInstance, controllerNamespace, baseName)
+	err = r.CreateOrUpdateConfigMap(rateLimitInstance, controllerNamespace, baseName, deploymentName)
 
 	// Update deployment with ConfigMap values
 
-	err = r.UpdateDeployment(volumeProjectedSources, volumes,controllerNamespace,deploymentName)
+	err = r.UpdateDeployment(volumeProjectedSources, volumes, controllerNamespace, deploymentName)
 	if err != nil {
 		// try again
+
 		return ctrl.Result{}, err
+
 	}
 
 	return ctrl.Result{}, nil

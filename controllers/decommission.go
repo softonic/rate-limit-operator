@@ -90,13 +90,24 @@ func (r *RateLimitReconciler) deleteConfigMap(configMapRateLimit v1.ConfigMap) e
 
 }
 
-func (r *RateLimitReconciler) decomissionDeploymentVolumes(sources []v1.VolumeProjection, volumes []v1.Volume) error {
+func (r *RateLimitReconciler) decomissionDeploymentVolumes(sources []v1.VolumeProjection, volumes []v1.Volume, controllerNamespace string, deploymentName string) error {
 
-	err := r.removeVolumeFromDeployment(sources, volumes)
+	var err error
+
+/*	r.DeploymentRL, err = r.getDeployment(controllerNamespace, deploymentName)
+	if err != nil {
+		klog.Infof("Cannot Found Deployment %s. Error %v", deploymentName, err)
+		return err
+	} else {
+		klog.Infof("This is the  Deployment %s found in decomission. Annotations: %v", deploymentName, r.DeploymentRL.Spec.Template.Annotations)
+	}*/
+
+	err = r.removeVolumeFromDeployment(sources, volumes)
 	if err != nil {
 		klog.Infof("Cannot remove VolumeSource from deploy %v. Error %v", r.DeploymentRL, err)
 		return err
 	}
+
 
 	err = r.Update(context.TODO(), &r.DeploymentRL)
 	if err != nil {
@@ -111,9 +122,12 @@ func (r *RateLimitReconciler) decomissionDeploymentVolumes(sources []v1.VolumePr
 func (r *RateLimitReconciler) removeVolumeFromDeployment(sources []v1.VolumeProjection, volumes []v1.Volume) error {
 
 	for _, v := range r.DeploymentRL.Spec.Template.Spec.Volumes {
+		klog.Info("Volumes already deployed in deployment are: %v", v)
 		if v.Name == "commonconfig-volume" && len(v.VolumeSource.Projected.Sources) > 1 {
 			i := 0
+			klog.Info("Entering first for: there are more than 1 sources and the volume is the correct one")
 			for _, n := range v.VolumeSource.Projected.Sources {
+				klog.Info("the source is: %v", n)
 				for _, p := range sources {
 					if n.ConfigMap.Name == p.ConfigMap.Name {
 					} else {

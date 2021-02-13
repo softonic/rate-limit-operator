@@ -57,11 +57,13 @@ type Descriptors struct {
 type DescriptorsParent struct {
 	Descriptors []Descriptors `json:"descriptors"`
 	Key         string        `json:"key"`
+	Value       string        `json:"value,omitempty"`
 }
 
 type RequestHeader struct {
 	DescriptorKey string `json:"descriptor_key"`
 	HeaderName    string `json:"header_name"`
+	Value         string `json:"value,omitempty"`
 }
 type Dimensions struct {
 	RequestHeader RequestHeader `json:"request_header"`

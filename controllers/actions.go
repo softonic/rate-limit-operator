@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/ghodss/yaml"
+	"regexp"
 	"strconv"
 	"time"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
@@ -136,13 +137,17 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 	// get Destination Cluster
 
 	nameVirtualService := rateLimitInstance.Spec.TargetRef.Name
+	namespace := rateLimitInstance.Spec.TargetRef.Namespace
 
 	var value string
 
 	if rateLimitInstance.Spec.DestinationCluster != "" {
-		value = rateLimitInstance.Spec.DestinationCluster
+		a := regexp.MustCompile(`:`)
+		hostname := a.Split(rateLimitInstance.Spec.DestinationCluster, -1)[0]
+		port := a.Split(rateLimitInstance.Spec.DestinationCluster, -1)[1]
+		value = "outbound|" + port + "||" + hostname
 	} else {
-		value, err = r.getDestinationClusterFromVirtualService("istio-system", nameVirtualService)
+		value, err = r.getDestinationClusterFromVirtualService(namespace, nameVirtualService)
 		if err != nil {
 			klog.Infof("Cannot generate configmap as we cannot find a host destination cluster")
 			return v1.ConfigMap{}, err
@@ -193,7 +198,7 @@ func (r *RateLimitReconciler) getDestinationClusterFromVirtualService(namespace 
 
 	virtualService, err := r.getVirtualService(namespace, nameVirtualService)
 	if err != nil {
-		klog.Infof("Virtualservice does not exists")
+		klog.Infof("Virtualservice does not exists. Error:", err)
 		return "", err
 	}
 

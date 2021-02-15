@@ -64,7 +64,7 @@ type K8sObject struct {
 // +kubebuilder:rbac:groups=*,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=*,resources=services,verbs=get;list;watch
 
 
 func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {

@@ -34,12 +34,6 @@ spec:
           metadata:
             type: object
           spec:
-            description: "RateLimitSpec defines the desired state of RateLimit type
-              RateLimitSpec struct { \t// INSERT ADDITIONAL SPEC FIELDS - desired
-              state of cluster \t// Important: Run \"make\" to regenerate code after
-              modifying this file \tTargetRef        v1.ObjectReference `json:\"targetRef\"`
-              \tDimensions       DimensionsList     `json:\"dimensions\"` \tWorkloadSelector
-              map[string]string  `json:\"workloadselector\"` }"
             properties:
               destinationCluster:
                 type: string
@@ -54,6 +48,8 @@ spec:
                               descriptor_key:
                                 type: string
                               header_name:
+                                type: string
+                              value:
                                 type: string
                             required:
                             - descriptor_key
@@ -111,7 +107,6 @@ spec:
                     type: string
                 type: object
             required:
-            - destinationCluster
             - rate
             - targetRef
             type: object

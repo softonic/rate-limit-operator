@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"github.com/ghodss/yaml"
 	"regexp"
 	"strconv"
@@ -83,16 +82,6 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 		r.mutex.Lock()
 		defer r.mutex.Unlock()
 
-/*		deploy := &appsv1.Deployment{}
-		err := r.Get(context.TODO(), client.ObjectKey{
-			Namespace: controllerNamespace,
-			Name:      "rate-limit-operator-ratelimit",
-		}, deploy)
-		if err != nil {
-			klog.Infof("Cannot Get Deployment %s. Error %v", "istio-system-ratelimit", err)
-			return err
-		}*/
-
 		r.DeploymentRL, err = r.getDeployment(controllerNamespace, deploymentName)
 		if err != nil {
 			klog.Infof("Cannot Found Deployment %s. Error %v", deploymentName, err)
@@ -142,10 +131,7 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 	var value string
 
 	if rateLimitInstance.Spec.DestinationCluster != "" {
-		a := regexp.MustCompile(`:`)
-		hostname := a.Split(rateLimitInstance.Spec.DestinationCluster, -1)[0]
-		port := a.Split(rateLimitInstance.Spec.DestinationCluster, -1)[1]
-		value = "outbound|" + port + "||" + hostname
+		value = rateLimitInstance.Spec.DestinationCluster
 	} else {
 		value, err = r.getDestinationClusterFromVirtualService(namespace, nameVirtualService)
 		if err != nil {
@@ -198,8 +184,10 @@ func (r *RateLimitReconciler) getDestinationClusterFromVirtualService(namespace 
 
 	virtualService, err := r.getVirtualService(namespace, nameVirtualService)
 	if err != nil {
-		klog.Infof("Virtualservice does not exists. Error:", err)
+		klog.Infof("Virtualservice %s does not exists. Error:", nameVirtualService, err)
 		return "", err
+	} else {
+		klog.Infof("found the %s", nameVirtualService)
 	}
 
 	subset := ""
@@ -209,19 +197,52 @@ func (r *RateLimitReconciler) getDestinationClusterFromVirtualService(namespace 
 		if routes.Route[k].Destination.Host != "" {
 			destination = routes.Route[k].Destination.Host
 			subset = routes.Route[k].Destination.Subset
+			break
 		}
 	}
 
+
+	// look for the port
+
+	// get the name of the service from destination
+
+	a := regexp.MustCompile(`\.`)
+	serviceName := a.Split(destination, -1)[0]
+
+	service := &v1.Service{}
+	err = r.Get(context.TODO(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      serviceName,
+	}, service)
+	if err != nil {
+		klog.Infof("Cannot Get Service %s. Error %v", serviceName, err)
+		return "not found", err
+	}
+
+	var port int32
+
+	for _,p := range service.Spec.Ports {
+
+		if res,_ := regexp.MatchString(`http`, p.Name) ; res  {
+			port = p.Port
+		} else {
+			port = 80
+		}
+	}
+
+
 	if destination == "" {
-		return "", errors.New("cannot find any suitable destinationCluster")
+		destinationCluster := "outbound|80||" + serviceName + "." + namespace + ".svc.cluster.local"
+		klog.Infof("Desstination could not be resolved")
+		return destinationCluster, nil
+
 	}
 
 	//outbound|80|prod|server.digitaltrends-v1.svc.cluster.local
 
+	destinationCluster := "outbound|" + strconv.FormatInt(int64(port), 10) + "|" + subset + "|" + destination
 
-	destinationCluster := "outbound|80|" + subset + "|" + destination
-
-	return destinationCluster, errors.New("cannot find any suitable destinationCluster")
+	return destinationCluster, nil
 
 }
 

@@ -94,13 +94,13 @@ func (r *RateLimitReconciler) decomissionDeploymentVolumes(sources []v1.VolumePr
 
 	var err error
 
-/*	r.DeploymentRL, err = r.getDeployment(controllerNamespace, deploymentName)
+	r.DeploymentRL, err = r.getDeployment(controllerNamespace, deploymentName)
 	if err != nil {
 		klog.Infof("Cannot Found Deployment %s. Error %v", deploymentName, err)
 		return err
 	} else {
 		klog.Infof("This is the  Deployment %s found in decomission. Annotations: %v", deploymentName, r.DeploymentRL.Spec.Template.Annotations)
-	}*/
+	}
 
 	err = r.removeVolumeFromDeployment(sources, volumes)
 	if err != nil {

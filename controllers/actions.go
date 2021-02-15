@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/ghodss/yaml"
-	"errors"
+	"regexp"
+	"strconv"
+	"time"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +25,7 @@ func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilte
 		Name:      nameEnvoyFilter,
 	}, found)
 	if err != nil {
-		klog.Infof("Cannot Found EnvoyFilter %s before creating. Error %v", found.Name, err)
+		klog.Infof("Cannot Found EnvoyFilter %s before creating. %v", found.Name, err)
 		err = r.Create(context.TODO(), &desired)
 		if err != nil {
 			klog.Infof("Cannot Create EnvoyFilter %s. Error %v", desired.Name, err)
@@ -46,7 +48,7 @@ func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilte
 
 }
 
-func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, controllerNamespace string, baseName string) error {
+func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *networkingv1alpha1.RateLimit, controllerNamespace string, baseName string, deploymentName string) error {
 
 	var err error
 
@@ -69,10 +71,38 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
 
+		klog.Infof("the 2 resources are not the same, we should patch the deployment")
+
 		err = r.Patch(context.TODO(), &cm, client.Apply, applyOpts...)
 		if err != nil {
+			klog.Infof("Cannot patch cm. Error: %v",  err)
 			return err
 		}
+
+		r.mutex.Lock()
+		defer r.mutex.Unlock()
+
+		r.DeploymentRL, err = r.getDeployment(controllerNamespace, deploymentName)
+		if err != nil {
+			klog.Infof("Cannot Found Deployment %s. Error %v", deploymentName, err)
+			return err
+		} else {
+			klog.Infof("This is the  Deployment %s found in the patch operation. Annotations: %v", deploymentName, r.DeploymentRL.Spec.Template.Annotations)
+		}
+
+		epoch := strconv.FormatInt(time.Now().Unix(), 10)
+
+		r.DeploymentRL.Spec.Template.Annotations["date"] = epoch
+
+		err = r.Update(context.TODO(), &r.DeploymentRL)
+		if err != nil {
+			klog.Infof("Cannot Update Deployment %s in patch operation. Error %v", r.DeploymentRL.Name, err)
+			return err
+		} else {
+			klog.Infof("Deployment updated inside patch loop.")
+		}
+		
+
 	}
 
 	return nil
@@ -96,13 +126,14 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 	// get Destination Cluster
 
 	nameVirtualService := rateLimitInstance.Spec.TargetRef.Name
+	namespace := rateLimitInstance.Spec.TargetRef.Namespace
 
 	var value string
 
 	if rateLimitInstance.Spec.DestinationCluster != "" {
 		value = rateLimitInstance.Spec.DestinationCluster
 	} else {
-		value, err = r.getDestinationClusterFromVirtualService("istio-system", nameVirtualService)
+		value, err = r.getDestinationClusterFromVirtualService(namespace, nameVirtualService)
 		if err != nil {
 			klog.Infof("Cannot generate configmap as we cannot find a host destination cluster")
 			return v1.ConfigMap{}, err
@@ -110,7 +141,10 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 	}
 
 	for k, dimension := range rateLimitInstance.Spec.Rate {
-		descriptorOutput.DescriptorsParent[k].Key = dimension.Unit
+		descriptorOutput.DescriptorsParent[k].Key = dimension.Dimensions[0].RequestHeader.DescriptorKey + "_" + dimension.Unit
+		if dimension.Dimensions[0].RequestHeader.Value != "" {
+			descriptorOutput.DescriptorsParent[k].Value = dimension.Dimensions[0].RequestHeader.Value
+		}
 		descriptor := networkingv1alpha1.Descriptors{
 			Key: "destination_cluster",
 			RateLimit: networkingv1alpha1.RateLimitPerDescriptor{
@@ -150,8 +184,10 @@ func (r *RateLimitReconciler) getDestinationClusterFromVirtualService(namespace 
 
 	virtualService, err := r.getVirtualService(namespace, nameVirtualService)
 	if err != nil {
-		klog.Infof("Virtualservice does not exists")
+		klog.Infof("Virtualservice %s does not exists. Error:", nameVirtualService, err)
 		return "", err
+	} else {
+		klog.Infof("found the %s", nameVirtualService)
 	}
 
 	subset := ""
@@ -161,19 +197,52 @@ func (r *RateLimitReconciler) getDestinationClusterFromVirtualService(namespace 
 		if routes.Route[k].Destination.Host != "" {
 			destination = routes.Route[k].Destination.Host
 			subset = routes.Route[k].Destination.Subset
+			break
 		}
 	}
 
+
+	// look for the port
+
+	// get the name of the service from destination
+
+	a := regexp.MustCompile(`\.`)
+	serviceName := a.Split(destination, -1)[0]
+
+	service := &v1.Service{}
+	err = r.Get(context.TODO(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      serviceName,
+	}, service)
+	if err != nil {
+		klog.Infof("Cannot Get Service %s. Error %v", serviceName, err)
+		return "not found", err
+	}
+
+	var port int32
+
+	for _,p := range service.Spec.Ports {
+
+		if res,_ := regexp.MatchString(`http`, p.Name) ; res  {
+			port = p.Port
+		} else {
+			port = 80
+		}
+	}
+
+
 	if destination == "" {
-		return "", errors.New("cannot find any suitable destinationCluster")
+		destinationCluster := "outbound|80||" + serviceName + "." + namespace + ".svc.cluster.local"
+		klog.Infof("Desstination could not be resolved")
+		return destinationCluster, nil
+
 	}
 
 	//outbound|80|prod|server.digitaltrends-v1.svc.cluster.local
 
+	destinationCluster := "outbound|" + strconv.FormatInt(int64(port), 10) + "|" + subset + "|" + destination
 
-	destinationCluster := "outbound|80|" + subset + "|" + destination
-
-	return destinationCluster, errors.New("cannot find any suitable destinationCluster")
+	return destinationCluster, nil
 
 }
 
@@ -184,10 +253,14 @@ func (r *RateLimitReconciler) UpdateDeployment(volumeProjectedSources []v1.Volum
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
+	time.Sleep(4 * time.Second)
+
 	r.DeploymentRL, err = r.getDeployment(controllerNamespace, deploymentName)
 	if err != nil {
 		klog.Infof("Cannot Found Deployment %s. Error %v", deploymentName, err)
 		return err
+	} else {
+		klog.Infof("This is the  Deployment %s found later on last function. Annotations: %v", deploymentName, r.DeploymentRL.Spec.Template.Annotations)
 	}
 
 	err = r.addVolumeFromDeployment(volumeProjectedSources, volumes)
@@ -199,8 +272,11 @@ func (r *RateLimitReconciler) UpdateDeployment(volumeProjectedSources []v1.Volum
 
 	err = r.Update(context.TODO(), &r.DeploymentRL)
 	if err != nil {
-		klog.Infof("Cannot Update Deployment %s. Error %v", r.DeploymentRL.Name, err)
-		return err
+		err = r.Update(context.TODO(), &r.DeploymentRL)
+		if err != nil {
+			klog.Infof("Cannot Update Deployment %s. Error %v", r.DeploymentRL.Name, err)
+			return err
+		}
 	}
 
 

@@ -34,7 +34,7 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	virtualService, err := r.getVirtualService(namespace, nameVirtualService)
 	if err != nil {
-		klog.Infof("Virtualservice does not exists")
+		klog.Infof("Virtualservice does not exists", err)
 	}
 
 	gatewayIngress := strings.Split(virtualService.Spec.Gateways[0], "/")
@@ -165,11 +165,13 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 
 	for k, dimension := range rateLimitInstance.Spec.Rate {
 
+		keyName := dimension.Dimensions[0].RequestHeader.DescriptorKey + "_" +  dimension.Unit
+
 		actions = []networkingv1alpha1.Actions{
 
 			{
 				RequestHeaders: &networkingv1alpha1.RequestHeaders{
-					DescriptorKey: dimension.Unit,
+					DescriptorKey: keyName,
 					HeaderName:    dimension.Dimensions[len(dimension.Dimensions)-1].RequestHeader.HeaderName,
 				},
 			},

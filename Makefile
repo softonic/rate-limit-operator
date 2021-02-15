@@ -1,8 +1,8 @@
-IMG ?= softonic/rate-limit-operator:1.0.12
+IMG ?= softonic/rate-limit-operator:1.0.18
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 BIN := rate-limit-operator
 PKG := github.com/softonic/rate-limit-operator
-VERSION ?= 1.0.12
+VERSION ?= 1.0.18
 ARCH ?= amd64
 APP ?= rate-limit-operator
 NAMESPACE ?= rate-limit-operator-system

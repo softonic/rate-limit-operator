@@ -33,6 +33,14 @@ rules:
 - apiGroups:
   - '*'
   resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - '*'
+  resources:
   - virtualservices
   verbs:
   - create

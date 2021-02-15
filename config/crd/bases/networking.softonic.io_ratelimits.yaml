@@ -49,6 +49,8 @@ spec:
                                 type: string
                               header_name:
                                 type: string
+                              value:
+                                type: string
                             required:
                             - descriptor_key
                             - header_name

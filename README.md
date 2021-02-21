@@ -99,6 +99,7 @@ spec:
 
 * targetRef will point to a VS that will have the host field that you will need in your envoyfilter in order to apply the routing
 * destinationCluster ( optional ) is the Cluster ( here cluster is referring to the concept of cluster in the envoy/istio language ) 
+If you dont set this field, operator will try to find the destination cluster for your application looking at the Virtual Service http route destination
 * following configuration refer to what to limit. In this case we are limiting 100 per second per x-custom-ip
 
 

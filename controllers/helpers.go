@@ -30,7 +30,7 @@ func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace st
 	return nil
 }
 
-func getConfigObjectMatch(typeConfigObjectMatch string, operation string, clusterEndpoint string, context string, nameVhost string) istio_v1alpha3.EnvoyConfigObjectMatch {
+func getConfigObjectMatch(typeConfigObjectMatch string, operation string, clusterEndpoint string, context string, nameVhost string, route string) istio_v1alpha3.EnvoyConfigObjectMatch {
 
 	Match := istio_v1alpha3.EnvoyConfigObjectMatch{}
 
@@ -68,9 +68,9 @@ func getConfigObjectMatch(typeConfigObjectMatch string, operation string, cluste
 			Context: context,
 			RouteConfiguration: &istio_v1alpha3.RouteConfigurationMatch{
 				Vhost: istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{
-					Name: nameVhost,
 					Route: istio_v1alpha3.RouteConfigurationMatch_RouteMatch{
 						Action: "ANY",
+						Name: route,
 					},
 				},
 			},
@@ -82,18 +82,38 @@ func getConfigObjectMatch(typeConfigObjectMatch string, operation string, cluste
 
 }
 
-func getEnvoyFilterConfigPatches(applyTo string, operation string, rawConfig json.RawMessage, typeConfigObjectMatch string, clusterEndpoint string, context string, nameVhost string) []istio_v1alpha3.EnvoyConfigObjectPatch {
+func getEnvoyFilterConfigPatches(applyTo string, operation string, rawConfig json.RawMessage, typeConfigObjectMatch string, clusterEndpoint string, context string, nameVhost string, routes []string) []istio_v1alpha3.EnvoyConfigObjectPatch {
 
-	ConfigPatches := []istio_v1alpha3.EnvoyConfigObjectPatch{
-		{
-			ApplyTo: applyTo,
-			Patch: istio_v1alpha3.Patch{
-				Operation: operation,
-				Value:     rawConfig,
+
+	ConfigPatches := []istio_v1alpha3.EnvoyConfigObjectPatch{}
+	element := istio_v1alpha3.EnvoyConfigObjectPatch{}
+
+	if len(routes) > 0 {
+		for _,route := range routes{
+			element = istio_v1alpha3.EnvoyConfigObjectPatch{
+					ApplyTo: applyTo,
+					Patch: istio_v1alpha3.Patch{
+						Operation: operation,
+						Value:     rawConfig,
+					},
+					Match: getConfigObjectMatch(typeConfigObjectMatch, operation, clusterEndpoint, context, nameVhost, route),
+			}
+			ConfigPatches = append(ConfigPatches, element)
+		}
+	} else {
+		ConfigPatches = []istio_v1alpha3.EnvoyConfigObjectPatch{
+			{
+				ApplyTo: applyTo,
+				Patch: istio_v1alpha3.Patch{
+					Operation: operation,
+					Value:     rawConfig,
+				},
+				Match: getConfigObjectMatch(typeConfigObjectMatch, operation, clusterEndpoint, context, nameVhost, ""),
 			},
-			Match: getConfigObjectMatch(typeConfigObjectMatch, operation, clusterEndpoint, context, nameVhost),
-		},
+		}
 	}
+
+
 
 	return ConfigPatches
 
@@ -114,7 +134,7 @@ func (e EnvoyFilterObject) composeEnvoyFilter(name string, namespace string) ist
 			WorkloadSelector: istio_v1alpha3.WorkloadSelector{
 				Labels: e.Labels,
 			},
-			ConfigPatches: getEnvoyFilterConfigPatches(e.ApplyTo, e.Operation, e.RawConfig, e.TypeConfigObjectMatch, e.ClusterEndpoint, e.Context, e.NameVhost),
+			ConfigPatches: getEnvoyFilterConfigPatches(e.ApplyTo, e.Operation, e.RawConfig, e.TypeConfigObjectMatch, e.ClusterEndpoint, e.Context, e.NameVhost, e.Routes),
 		},
 	}
 

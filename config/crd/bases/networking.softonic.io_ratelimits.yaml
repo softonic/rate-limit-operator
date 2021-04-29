@@ -35,6 +35,10 @@ spec:
             type: object
           spec:
             properties:
+              applytoroutes:
+                items:
+                  type: string
+                type: array
               destinationCluster:
                 type: string
               rate:
@@ -107,6 +111,7 @@ spec:
                     type: string
                 type: object
             required:
+            - applytoroutes
             - rate
             - targetRef
             type: object

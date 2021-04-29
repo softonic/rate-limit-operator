@@ -21,6 +21,7 @@ type EnvoyFilterObject struct {
 	Context               string
 	Labels                map[string]string
 	NameVhost             string
+	Routes				  []string
 }
 
 func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance networkingv1alpha1.RateLimit, baseName string, controllerNamespace string) error {

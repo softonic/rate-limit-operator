@@ -34,6 +34,9 @@ func getConfigObjectMatch(typeConfigObjectMatch string, operation string, cluste
 
 	Match := istio_v1alpha3.EnvoyConfigObjectMatch{}
 
+
+	vhost := istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{}
+
 	if typeConfigObjectMatch == "Listener" {
 
 		Match = istio_v1alpha3.EnvoyConfigObjectMatch{
@@ -62,17 +65,31 @@ func getConfigObjectMatch(typeConfigObjectMatch string, operation string, cluste
 
 	}
 
+
+
+	if route != "" {
+		vhost = istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{
+			Route: istio_v1alpha3.RouteConfigurationMatch_RouteMatch{
+				Action: "ANY",
+				Name:   route,
+			},
+		}
+	} else {
+		vhost = istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{
+			Name: nameVhost,
+			Route: istio_v1alpha3.RouteConfigurationMatch_RouteMatch{
+				Action: "ANY",
+			},
+		}
+	}
+
+
 	if typeConfigObjectMatch == "RouteConfiguration" {
 
 		Match = istio_v1alpha3.EnvoyConfigObjectMatch{
 			Context: context,
 			RouteConfiguration: &istio_v1alpha3.RouteConfigurationMatch{
-				Vhost: istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{
-					Route: istio_v1alpha3.RouteConfigurationMatch_RouteMatch{
-						Action: "ANY",
-						Name: route,
-					},
-				},
+				Vhost: vhost,
 			},
 		}
 

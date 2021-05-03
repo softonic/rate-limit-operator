@@ -84,7 +84,7 @@ type RateLimitSpec struct {
 	TargetRef          v1.ObjectReference `json:"targetRef"`
 	DestinationCluster string             `json:"destinationCluster,omitempty"`
 	Rate               []Rate             `json:"rate"`
-	ApplyToRoutes      []string           `json:"applytoroutes"`
+	ApplyToRoutes      []string           `json:"applytoroutes,omitempty"`
 }
 
 // RateLimitStatus defines the observed state of RateLimit

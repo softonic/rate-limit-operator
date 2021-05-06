@@ -111,7 +111,6 @@ spec:
                     type: string
                 type: object
             required:
-            - applytoroutes
             - rate
             - targetRef
             type: object

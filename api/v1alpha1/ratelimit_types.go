@@ -84,6 +84,7 @@ type RateLimitSpec struct {
 	TargetRef          v1.ObjectReference `json:"targetRef"`
 	DestinationCluster string             `json:"destinationCluster,omitempty"`
 	Rate               []Rate             `json:"rate"`
+	// +kubebuilder:validation:Optional
 	ApplyToRoutes      []string           `json:"applytoroutes,omitempty"`
 }
 

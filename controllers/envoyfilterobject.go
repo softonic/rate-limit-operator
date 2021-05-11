@@ -21,6 +21,7 @@ type EnvoyFilterObject struct {
 	Context               string
 	Labels                map[string]string
 	NameVhost             string
+	Routes				  []string
 }
 
 func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance networkingv1alpha1.RateLimit, baseName string, controllerNamespace string) error {
@@ -121,6 +122,13 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	//rawConfigHTTPRoute := json.RawMessage(`{"route":{"rate_limits":[{"actions":[{"request_headers":{"descriptor_key":"remote_address","header_name":"x-custom-user-ip"}},{"destination_cluster":{}}]}]}}`)
 
+
+	var routesToApply []string
+
+	if  len(rateLimitInstance.Spec.ApplyToRoutes) > 0 {
+		routesToApply = rateLimitInstance.Spec.ApplyToRoutes
+	}
+
 	envoyFilterObjectRouteConfiguration := EnvoyFilterObject{
 		Operation:             "MERGE",
 		ApplyTo:               "HTTP_ROUTE",
@@ -129,6 +137,7 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 		Context:               "GATEWAY",
 		Labels:                labels,
 		NameVhost:             nameVhost,
+		Routes:                routesToApply,
 	}
 
 	envoyFilterHTTPRouteDesired := envoyFilterObjectRouteConfiguration.composeEnvoyFilter(baseName+"-route", istioNamespace)

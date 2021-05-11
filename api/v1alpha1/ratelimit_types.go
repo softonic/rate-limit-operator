@@ -74,6 +74,7 @@ type Rate struct {
 	Dimensions     []Dimensions `json:"dimensions"`
 }
 
+
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
@@ -83,6 +84,8 @@ type RateLimitSpec struct {
 	TargetRef          v1.ObjectReference `json:"targetRef"`
 	DestinationCluster string             `json:"destinationCluster,omitempty"`
 	Rate               []Rate             `json:"rate"`
+	// +kubebuilder:validation:Optional
+	ApplyToRoutes      []string           `json:"applytoroutes,omitempty"`
 }
 
 // RateLimitStatus defines the observed state of RateLimit

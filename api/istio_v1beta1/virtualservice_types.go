@@ -27,7 +27,7 @@ import (
 // Hosts property. This is not going to be used as CR, could be moved somewherelese
 
 type Destination struct {
-	Host   string   `json:"host,omitempty"`
+	Host   string `json:"host,omitempty"`
 	Subset string `json:"subset,omitempty"`
 }
 
@@ -43,8 +43,8 @@ type HTTPRoute struct {
 type VirtualServiceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Gateways []string `json:"gateways,omitempty"`
-	Hosts    []string `json:"hosts,omitempty"`
+	Gateways []string     `json:"gateways,omitempty"`
+	Hosts    []string     `json:"hosts,omitempty"`
 	Http     []*HTTPRoute `json:"http,omitempty"`
 }
 

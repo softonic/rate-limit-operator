@@ -4,16 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/ghodss/yaml"
-	"regexp"
-	"strconv"
-	"time"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"reflect"
+	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
+	"time"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 )
@@ -75,7 +75,7 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 
 		err = r.Patch(context.TODO(), &cm, client.Apply, applyOpts...)
 		if err != nil {
-			klog.Infof("Cannot patch cm. Error: %v",  err)
+			klog.Infof("Cannot patch cm. Error: %v", err)
 			return err
 		}
 
@@ -101,7 +101,6 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 		} else {
 			klog.Infof("Deployment updated inside patch loop.")
 		}
-		
 
 	}
 
@@ -141,10 +140,13 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 	}
 
 	for k, dimension := range rateLimitInstance.Spec.Rate {
-		descriptorOutput.DescriptorsParent[k].Key = dimension.Dimensions[0].RequestHeader.DescriptorKey + "_" + dimension.Unit
-		if dimension.Dimensions[0].RequestHeader.Value != "" {
-			descriptorOutput.DescriptorsParent[k].Value = dimension.Dimensions[0].RequestHeader.Value
+		if dimension.Dimensions[0].RequestHeader.DescriptorKey == "" {
+			descriptorOutput.DescriptorsParent[k].Key = "header_match"
+			descriptorOutput.DescriptorsParent[k].Value = dimension.Dimensions[0].HeaderValueMatch.DescriptorValue
+		} else {
+			descriptorOutput.DescriptorsParent[k].Key = dimension.Dimensions[0].RequestHeader.DescriptorKey + "_" + dimension.Unit
 		}
+
 		descriptor := networkingv1alpha1.Descriptors{
 			Key: "destination_cluster",
 			RateLimit: networkingv1alpha1.RateLimitPerDescriptor{
@@ -176,7 +178,7 @@ func (r *RateLimitReconciler) generateConfigMap(rateLimitInstance *networkingv1a
 		Data: configMapData,
 	}
 
-	return configMap,nil
+	return configMap, nil
 
 }
 
@@ -193,14 +195,13 @@ func (r *RateLimitReconciler) getDestinationClusterFromVirtualService(namespace 
 	subset := ""
 	destination := ""
 
-	for k,routes := range virtualService.Spec.Http {
+	for k, routes := range virtualService.Spec.Http {
 		if routes.Route[k].Destination.Host != "" {
 			destination = routes.Route[k].Destination.Host
 			subset = routes.Route[k].Destination.Subset
 			break
 		}
 	}
-
 
 	// look for the port
 
@@ -221,15 +222,14 @@ func (r *RateLimitReconciler) getDestinationClusterFromVirtualService(namespace 
 
 	var port int32
 
-	for _,p := range service.Spec.Ports {
+	for _, p := range service.Spec.Ports {
 
-		if res,_ := regexp.MatchString(`http`, p.Name) ; res  {
+		if res, _ := regexp.MatchString(`http`, p.Name); res {
 			port = p.Port
 		} else {
 			port = 80
 		}
 	}
-
 
 	if destination == "" {
 		destinationCluster := "outbound|80||" + serviceName + "." + namespace + ".svc.cluster.local"
@@ -269,7 +269,6 @@ func (r *RateLimitReconciler) UpdateDeployment(volumeProjectedSources []v1.Volum
 		return err
 	}
 
-
 	err = r.Update(context.TODO(), &r.DeploymentRL)
 	if err != nil {
 		err = r.Update(context.TODO(), &r.DeploymentRL)
@@ -279,15 +278,12 @@ func (r *RateLimitReconciler) UpdateDeployment(volumeProjectedSources []v1.Volum
 		}
 	}
 
-
-
 	return nil
 
 }
 
 func (r *RateLimitReconciler) addVolumeFromDeployment(volumeProjectedSources []v1.VolumeProjection, volumes []v1.Volume) error {
 
-	
 	var volumeProjectedSourcesToApply []v1.VolumeProjection
 
 	defaultVolumeMount := []v1.VolumeMount{
@@ -307,8 +303,8 @@ func (r *RateLimitReconciler) addVolumeFromDeployment(volumeProjectedSources []v
 	exists := true
 	for _, v := range r.DeploymentRL.Spec.Template.Spec.Volumes {
 		if v.Name == "commonconfig-volume" {
-			for _,sourceToApply := range volumeProjectedSources {
-				for _,sourceAlreadyExists := range v.VolumeSource.Projected.Sources {
+			for _, sourceToApply := range volumeProjectedSources {
+				for _, sourceAlreadyExists := range v.VolumeSource.Projected.Sources {
 					if sourceToApply.ConfigMap.Name == sourceAlreadyExists.ConfigMap.Name {
 						// this configmap is already in the volume projected sources, not need to include
 						exists = true
@@ -320,7 +316,7 @@ func (r *RateLimitReconciler) addVolumeFromDeployment(volumeProjectedSources []v
 				}
 				// If the sourcetoApply does not exists in the already mounted sources, append to the slice volumeProjectedSourcesToApply
 				if exists == false {
-					volumeProjectedSourcesToApply = append(volumeProjectedSourcesToApply,sourceToApply)
+					volumeProjectedSourcesToApply = append(volumeProjectedSourcesToApply, sourceToApply)
 				}
 			}
 			// append to the projected sources slice that will be update in the deployment

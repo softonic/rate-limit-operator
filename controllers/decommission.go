@@ -108,7 +108,6 @@ func (r *RateLimitReconciler) decomissionDeploymentVolumes(sources []v1.VolumePr
 		return err
 	}
 
-
 	err = r.Update(context.TODO(), &r.DeploymentRL)
 	if err != nil {
 		klog.Infof("Cannot Update Deployment %s. Error %v", "istio-system-ratelimit", err)

@@ -47,6 +47,26 @@ spec:
                     dimensions:
                       items:
                         properties:
+                          header_value_match:
+                            properties:
+                              descriptor_value:
+                                type: string
+                              headers:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    prefix_match:
+                                      type: string
+                                  required:
+                                  - name
+                                  - prefix_match
+                                  type: object
+                                type: array
+                            required:
+                            - descriptor_value
+                            - headers
+                            type: object
                           request_header:
                             properties:
                               descriptor_key:
@@ -59,8 +79,6 @@ spec:
                             - descriptor_key
                             - header_name
                             type: object
-                        required:
-                        - request_header
                         type: object
                       type: array
                     requestPerUnit:

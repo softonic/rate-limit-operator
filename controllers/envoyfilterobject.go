@@ -21,7 +21,7 @@ type EnvoyFilterObject struct {
 	Context               string
 	Labels                map[string]string
 	NameVhost             string
-	Routes				  []string
+	Routes                []string
 }
 
 func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance networkingv1alpha1.RateLimit, baseName string, controllerNamespace string) error {
@@ -89,7 +89,7 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	domain := baseName
 
-	payload = []byte(fmt.Sprintf(`{"config":{"domain":"%s","rate_limit_service":{"grpc_service":{"envoy_grpc":{"cluster_name":"%s"},"timeout":"1.25s"}}},"name":"envoy.rate_limit"}`, domain,nameCluster))
+	payload = []byte(fmt.Sprintf(`{"config":{"domain":"%s","rate_limit_service":{"grpc_service":{"envoy_grpc":{"cluster_name":"%s"},"timeout":"1.25s"}}},"name":"envoy.rate_limit"}`, domain, nameCluster))
 
 	rawConfigHTTPFilter := json.RawMessage(payload)
 
@@ -117,15 +117,13 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	intermediateJson := append(initJson, jsonActions...)
 
-
 	rawConfigHTTPRoute := json.RawMessage(append(intermediateJson, finalJson...))
 
 	//rawConfigHTTPRoute := json.RawMessage(`{"route":{"rate_limits":[{"actions":[{"request_headers":{"descriptor_key":"remote_address","header_name":"x-custom-user-ip"}},{"destination_cluster":{}}]}]}}`)
 
-
 	var routesToApply []string
 
-	if  len(rateLimitInstance.Spec.ApplyToRoutes) > 0 {
+	if len(rateLimitInstance.Spec.ApplyToRoutes) > 0 {
 		routesToApply = rateLimitInstance.Spec.ApplyToRoutes
 	}
 
@@ -174,22 +172,46 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 
 	for k, dimension := range rateLimitInstance.Spec.Rate {
 
-		keyName := dimension.Dimensions[0].RequestHeader.DescriptorKey + "_" +  dimension.Unit
+		keyName := dimension.Dimensions[0].RequestHeader.DescriptorKey + "_" + dimension.Unit
 
-		actions = []networkingv1alpha1.Actions{
-
-			{
-				RequestHeaders: &networkingv1alpha1.RequestHeaders{
-					DescriptorKey: keyName,
-					HeaderName:    dimension.Dimensions[len(dimension.Dimensions)-1].RequestHeader.HeaderName,
+		if dimension.Dimensions[0].RequestHeader.DescriptorKey == "" {
+			actions = []networkingv1alpha1.Actions{
+				{
+					HeaderValueMatch: &networkingv1alpha1.HeaderValueMatch{
+						DescriptorValue: dimension.Dimensions[len(dimension.Dimensions)-1].HeaderValueMatch.DescriptorValue,
+						Headers: []networkingv1alpha1.Headers{
+							{
+								Name: dimension.Dimensions[len(dimension.Dimensions)-1].HeaderValueMatch.Headers[0].Name,
+								PrefixMatch: dimension.Dimensions[len(dimension.Dimensions)-1].HeaderValueMatch.Headers[0].PrefixMatch,
+							},
+						},
+					},
 				},
-			},
-			{
-				DestinationCluster: &networkingv1alpha1.DestinationClusterHeader{},
-			},
+				{
+					DestinationCluster: &networkingv1alpha1.DestinationClusterHeader{},
+				},
+			}
+			actionsOutput.RateLimits[k].Actions = actions
+
+
+		} else {
+			actions = []networkingv1alpha1.Actions{
+
+				{
+					RequestHeaders: &networkingv1alpha1.RequestHeaders{
+						DescriptorKey: keyName,
+						HeaderName:    dimension.Dimensions[len(dimension.Dimensions)-1].RequestHeader.HeaderName,
+					},
+				},
+				{
+					DestinationCluster: &networkingv1alpha1.DestinationClusterHeader{},
+				},
+			}
+
+			actionsOutput.RateLimits[k].Actions = actions
 		}
 
-		actionsOutput.RateLimits[k].Actions = actions
+
 
 	}
 

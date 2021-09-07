@@ -26,14 +26,12 @@ func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace st
 
 	}
 
-
 	return nil
 }
 
 func getConfigObjectMatch(typeConfigObjectMatch string, operation string, clusterEndpoint string, context string, nameVhost string, route string) istio_v1alpha3.EnvoyConfigObjectMatch {
 
 	Match := istio_v1alpha3.EnvoyConfigObjectMatch{}
-
 
 	vhost := istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{}
 
@@ -65,8 +63,6 @@ func getConfigObjectMatch(typeConfigObjectMatch string, operation string, cluste
 
 	}
 
-
-
 	if route != "" {
 		vhost = istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{
 			Route: istio_v1alpha3.RouteConfigurationMatch_RouteMatch{
@@ -82,7 +78,6 @@ func getConfigObjectMatch(typeConfigObjectMatch string, operation string, cluste
 			},
 		}
 	}
-
 
 	if typeConfigObjectMatch == "RouteConfiguration" {
 
@@ -101,19 +96,18 @@ func getConfigObjectMatch(typeConfigObjectMatch string, operation string, cluste
 
 func getEnvoyFilterConfigPatches(applyTo string, operation string, rawConfig json.RawMessage, typeConfigObjectMatch string, clusterEndpoint string, context string, nameVhost string, routes []string) []istio_v1alpha3.EnvoyConfigObjectPatch {
 
-
 	ConfigPatches := []istio_v1alpha3.EnvoyConfigObjectPatch{}
 	element := istio_v1alpha3.EnvoyConfigObjectPatch{}
 
 	if len(routes) > 0 {
-		for _,route := range routes{
+		for _, route := range routes {
 			element = istio_v1alpha3.EnvoyConfigObjectPatch{
-					ApplyTo: applyTo,
-					Patch: istio_v1alpha3.Patch{
-						Operation: operation,
-						Value:     rawConfig,
-					},
-					Match: getConfigObjectMatch(typeConfigObjectMatch, operation, clusterEndpoint, context, nameVhost, route),
+				ApplyTo: applyTo,
+				Patch: istio_v1alpha3.Patch{
+					Operation: operation,
+					Value:     rawConfig,
+				},
+				Match: getConfigObjectMatch(typeConfigObjectMatch, operation, clusterEndpoint, context, nameVhost, route),
 			}
 			ConfigPatches = append(ConfigPatches, element)
 		}
@@ -129,8 +123,6 @@ func getEnvoyFilterConfigPatches(applyTo string, operation string, rawConfig jso
 			},
 		}
 	}
-
-
 
 	return ConfigPatches
 

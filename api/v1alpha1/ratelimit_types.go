@@ -36,6 +36,7 @@ type RequestHeaders struct {
 
 type Actions struct {
 	RequestHeaders     *RequestHeaders           `json:"request_headers,omitempty"`
+	HeaderValueMatch   *HeaderValueMatch         `json:"header_value_match,omitempty"`
 	DestinationCluster *DestinationClusterHeader `json:"destination_cluster,omitempty"`
 }
 
@@ -65,15 +66,26 @@ type RequestHeader struct {
 	HeaderName    string `json:"header_name"`
 	Value         string `json:"value,omitempty"`
 }
+
+type Headers struct {
+	Name        string `json:"name"`
+	PrefixMatch string `json:"prefix_match"`
+}
+
+type HeaderValueMatch struct {
+	DescriptorValue string    `json:"descriptor_value"`
+	Headers         []Headers `json:"headers"`
+}
+
 type Dimensions struct {
-	RequestHeader RequestHeader `json:"request_header"`
+	RequestHeader    RequestHeader    `json:"request_header,omitempty"`
+	HeaderValueMatch HeaderValueMatch `json:"header_value_match,omitempty"`
 }
 type Rate struct {
 	Unit           string       `json:"unit"`
 	RequestPerUnit int          `json:"requestPerUnit"`
 	Dimensions     []Dimensions `json:"dimensions"`
 }
-
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -85,7 +97,7 @@ type RateLimitSpec struct {
 	DestinationCluster string             `json:"destinationCluster,omitempty"`
 	Rate               []Rate             `json:"rate"`
 	// +kubebuilder:validation:Optional
-	ApplyToRoutes      []string           `json:"applytoroutes,omitempty"`
+	ApplyToRoutes []string `json:"applytoroutes,omitempty"`
 }
 
 // RateLimitStatus defines the observed state of RateLimit

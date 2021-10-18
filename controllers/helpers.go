@@ -42,9 +42,9 @@ func getConfigObjectMatch(typeConfigObjectMatch string, operation string, cluste
 			Listener: &istio_v1alpha3.ListenerMatch{
 				FilterChain: istio_v1alpha3.ListenerMatch_FilterChainMatch{
 					Filter: istio_v1alpha3.ListenerMatch_FilterMatch{
-						Name: "envoy.http_connection_manager",
+						Name: "envoy.filters.network.http_connection_manager",
 						SubFilter: istio_v1alpha3.ListenerMatch_SubFilterMatch{
-							Name: "envoy.router",
+							Name: "envoy.filters.http.router",
 						},
 					},
 				},

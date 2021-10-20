@@ -59,7 +59,7 @@ type ListenerMatch_FilterMatch struct {
 	// The next level filter within this filter to match
 	// upon. Typically used for HTTP Connection Manager filters and
 	// Thrift filters.
-	SubFilter ListenerMatch_SubFilterMatch `json:"sub_filter,omitempty"`
+	SubFilter ListenerMatch_SubFilterMatch `json:"subFilter,omitempty"`
 }
 
 type ListenerMatch_FilterChainMatch struct {
@@ -110,7 +110,7 @@ type ListenerMatch struct {
 	// patch will be applied to the filter chain (and a specific
 	// filter if specified) and not to other filter chains in the
 	// listener.
-	FilterChain ListenerMatch_FilterChainMatch `json:"filter_chain,omitempty"`
+	FilterChain ListenerMatch_FilterChainMatch `json:"filterChain,omitempty"`
 	// Match a specific listener by its name. The listeners generated
 	// by Pilot are typically named as IP:Port.
 	Name string `json:"name,omitempty"`

@@ -59,8 +59,8 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 	fqdn := address + "." + controllerNamespace + ".svc.cluster.local"
 
 	nameCluster := "rate_limit_service_" + baseName
-
-	payload := []byte(fmt.Sprintf(`{"connect_timeout": "1.25s", "hosts": [ { "socket_address": { "address": "%s", "port_value": 8081 } } ], "http2_protocol_options": {}, "lb_policy": "ROUND_ROBIN", "name": "%s", "type": "STRICT_DNS" }`, fqdn, nameCluster))
+	
+	payload := []byte(fmt.Sprintf(`{"connect_timeout":"1.25s","load_assignment":{"cluster_name":"%s","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"%s","port_value":8081}}}}]}]},"http2_protocol_options":{},"lb_policy":"ROUND_ROBIN","name":"%s","type":"STRICT_DNS"}`,fqdn, fqdn, nameCluster))
 
 	rawConfigCluster := json.RawMessage(payload)
 

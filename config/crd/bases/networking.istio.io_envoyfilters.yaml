@@ -79,7 +79,7 @@ spec:
                             `protobuf_oneof:\"object_types\"` ObjectTypes          isEnvoyFilter_EnvoyConfigObjectMatch_ObjectTypes
                             `protobuf_oneof:\"object_types\"`"
                           properties:
-                            filter_chain:
+                            filterChain:
                               description: Match a specific filter chain in a listener.
                                 If specified, the patch will be applied to the filter
                                 chain (and a specific filter if specified) and not
@@ -106,7 +106,7 @@ spec:
                                         should be used. Refer to https://www.envoyproxy.io/docs/envoy/latest/version_history/v1.14.0#deprecated
                                         for canonical names.
                                       type: string
-                                    sub_filter:
+                                    subFilter:
                                       description: The next level filter within this
                                         filter to match upon. Typically used for HTTP
                                         Connection Manager filters and Thrift filters.

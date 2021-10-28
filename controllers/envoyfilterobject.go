@@ -89,7 +89,7 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	domain := baseName
 
-	payload = []byte(fmt.Sprintf(`{"typed_config":{"@type":"type.googleapis.com\/envoy.extensions.filters.http.ratelimit.v3.RateLimit","domain":"%s","rate_limit_service":{"grpc_service":{"envoy_grpc":{"cluster_name":"%s"},"timeout":"1.25s"}}},"name":"envoy.rate_limit"}`, domain, nameCluster))
+	payload = []byte(fmt.Sprintf(`{"typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit","domain":"%s","rate_limit_service":{"grpc_service":{"envoy_grpc":{"cluster_name":"%s"},"timeout":"1.25s"}}},"name":"envoy.rate_limit"}`, domain, nameCluster))
 
 	rawConfigHTTPFilter := json.RawMessage(payload)
 

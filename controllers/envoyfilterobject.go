@@ -3,10 +3,11 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	"k8s.io/klog"
-	"os"
 
 	// "os"
 	"strings"
@@ -59,8 +60,8 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 	fqdn := address + "." + controllerNamespace + ".svc.cluster.local"
 
 	nameCluster := "rate_limit_service_" + baseName
-	
-	payload := []byte(fmt.Sprintf(`{"connect_timeout":"1.25s","load_assignment":{"cluster_name":"%s","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"%s","port_value":8081}}}}]}]},"http2_protocol_options":{},"lb_policy":"ROUND_ROBIN","name":"%s","type":"STRICT_DNS"}`,fqdn, fqdn, nameCluster))
+
+	payload := []byte(fmt.Sprintf(`{"connect_timeout":"1.25s","load_assignment":{"cluster_name":"%s","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"%s","port_value":8081}}}}]}]},"http2_protocol_options":{},"lb_policy":"ROUND_ROBIN","name":"%s","type":"STRICT_DNS"}`, fqdn, fqdn, nameCluster))
 
 	rawConfigCluster := json.RawMessage(payload)
 
@@ -89,7 +90,7 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	domain := baseName
 
-	payload = []byte(fmt.Sprintf(`{"typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit","domain":"%s","rate_limit_service":{"grpc_service":{"envoy_grpc":{"cluster_name":"%s"},"timeout":"1.25s"}}},"name":"envoy.rate_limit"}`, domain, nameCluster))
+	payload = []byte(fmt.Sprintf(`{"typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit","domain":"%s","rate_limit_service":{"transport_api_version": "V3","grpc_service":{"envoy_grpc":{"cluster_name":"%s"},"timeout":"1.25s"}}},"name":"envoy.filters.http.ratelimit"}`, domain, nameCluster))
 
 	rawConfigHTTPFilter := json.RawMessage(payload)
 
@@ -181,7 +182,7 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 						DescriptorValue: dimension.Dimensions[len(dimension.Dimensions)-1].HeaderValueMatch.DescriptorValue,
 						Headers: []networkingv1alpha1.Headers{
 							{
-								Name: dimension.Dimensions[len(dimension.Dimensions)-1].HeaderValueMatch.Headers[0].Name,
+								Name:        dimension.Dimensions[len(dimension.Dimensions)-1].HeaderValueMatch.Headers[0].Name,
 								PrefixMatch: dimension.Dimensions[len(dimension.Dimensions)-1].HeaderValueMatch.Headers[0].PrefixMatch,
 							},
 						},
@@ -192,7 +193,6 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 				},
 			}
 			actionsOutput.RateLimits[k].Actions = actions
-
 
 		} else {
 			actions = []networkingv1alpha1.Actions{
@@ -210,8 +210,6 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 
 			actionsOutput.RateLimits[k].Actions = actions
 		}
-
-
 
 	}
 

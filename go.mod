@@ -9,6 +9,7 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
+	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664 // indirect
 	google.golang.org/genproto v0.0.0-20200731012542-8145dea6a485
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.18.8

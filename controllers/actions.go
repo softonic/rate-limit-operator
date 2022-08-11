@@ -3,17 +3,18 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"reflect"
+	"regexp"
+	"strconv"
+	"time"
+
 	"github.com/ghodss/yaml"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	"reflect"
-	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"time"
 
 	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 )
@@ -186,7 +187,7 @@ func (r *RateLimitReconciler) getDestinationClusterFromVirtualService(namespace 
 
 	virtualService, err := r.getVirtualService(namespace, nameVirtualService)
 	if err != nil {
-		klog.Infof("Virtualservice %s does not exists. Error:", nameVirtualService, err)
+		klog.Infof("Virtualservice %s does not exists. Error: %s", nameVirtualService, err)
 		return "", err
 	} else {
 		klog.Infof("found the %s", nameVirtualService)

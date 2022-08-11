@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 
@@ -121,12 +122,12 @@ func (r *RateLimitReconciler) decomissionDeploymentVolumes(sources []v1.VolumePr
 func (r *RateLimitReconciler) removeVolumeFromDeployment(sources []v1.VolumeProjection, volumes []v1.Volume) error {
 
 	for _, v := range r.DeploymentRL.Spec.Template.Spec.Volumes {
-		klog.Info("Volumes already deployed in deployment are: %v", v)
+		klog.Infof("Volumes already deployed in deployment are: %v", v)
 		if v.Name == "commonconfig-volume" && len(v.VolumeSource.Projected.Sources) > 1 {
 			i := 0
 			klog.Info("Entering first for: there are more than 1 sources and the volume is the correct one")
 			for _, n := range v.VolumeSource.Projected.Sources {
-				klog.Info("the source is: %v", n)
+				klog.Infof("the source is: %v", n)
 				for _, p := range sources {
 					if n.ConfigMap.Name == p.ConfigMap.Name {
 					} else {

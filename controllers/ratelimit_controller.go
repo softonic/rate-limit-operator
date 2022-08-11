@@ -18,9 +18,10 @@ package controllers
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"sync"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	appsv1 "k8s.io/api/apps/v1"
 
@@ -101,7 +102,7 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	volumeProjectedSources := constructVolumeSources(baseName)
 
-	klog.Info("The volumeProjectedSources is: %v", volumeProjectedSources)
+	klog.Infof("The volumeProjectedSources is: %v", volumeProjectedSources)
 
 	// DECOMMISSION
 

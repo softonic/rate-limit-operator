@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name:  rate-limit-operator 
+  description: |
+    rate-limit-operator
+  links:
+    - url: https://github.com/softonic/rate-limit-operator
+      title: GitHub Repo
+      icon: github
+    - title: Documentation
+      url: https://github.com/softonic/rate-limit-operator/blob/master/README.md
+  annotations:
+    github.com/project-slug: softonic/rate-limit-operator
+    backstage.io/techdocs-ref: dir:.
+spec:
+  type: application
+  owner: sre 
+  lifecycle: production

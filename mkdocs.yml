@@ -1,0 +1,10 @@
+site_name: 'Rate Limit Operator'
+site_description: 'Main documentation'
+edit_uri: 'blob/master'
+
+plugins:
+  - techdocs-core
+
+nav:
+  - Overview:
+      - What is Rate Limit operator: 'README.md'

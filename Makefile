@@ -54,7 +54,7 @@ deploy: make-manifest
 
 .PHONY: helm-deploy
 helm-deploy: install-crd
-	helm upgrade --install $(RELEASE_NAME) --namespace $(NAMESPACE) --set "image.tag=$(VERSION)" -f chart/rate-limit-operator/values.yaml  chart/rate-limit-operator
+	helm upgrade --install $(RELEASE_NAME) --namespace $(NAMESPACE) --create-namespace --set "image.tag=$(VERSION)" -f chart/rate-limit-operator/values.yaml  chart/rate-limit-operator
 
 .PHONY: install-crd
 install-crd:

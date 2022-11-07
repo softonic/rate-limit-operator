@@ -16,10 +16,10 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
+	clientIstio "istio.io/client-go/pkg/apis/networking/v1alpha3"
 )
 
-func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilter, found *istio_v1alpha3.EnvoyFilter, nameEnvoyFilter string, controllerNamespace string) error {
+func (r *RateLimitReconciler) applyEnvoyFilter(desired *clientIstio.EnvoyFilter, found *clientIstio.EnvoyFilter, nameEnvoyFilter string, controllerNamespace string) error {
 
 	err := r.Get(context.TODO(), types.NamespacedName{
 		Namespace: controllerNamespace,
@@ -27,7 +27,7 @@ func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilte
 	}, found)
 	if err != nil {
 		klog.Infof("Cannot Found EnvoyFilter %s before creating. %v", found.Name, err)
-		err = r.Create(context.TODO(), &desired)
+		err = r.Create(context.TODO(), desired)
 		if err != nil {
 			klog.Infof("Cannot Create EnvoyFilter %s. Error %v", desired.Name, err)
 			return err
@@ -37,7 +37,7 @@ func (r *RateLimitReconciler) applyEnvoyFilter(desired istio_v1alpha3.EnvoyFilte
 
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("rate-limit-controller")}
 
-		err = r.Patch(context.TODO(), &desired, client.Apply, applyOpts...)
+		err = r.Patch(context.TODO(), desired, client.Apply, applyOpts...)
 		if err != nil {
 			klog.Infof("Cannot Patch EnvoyFilter %s. Error %v", desired.Name, err)
 			return err
@@ -59,9 +59,7 @@ func (r *RateLimitReconciler) CreateOrUpdateConfigMap(rateLimitInstance *network
 		return err
 	}
 
-	found := v1.ConfigMap{}
-
-	found, err = r.getConfigMap(baseName, controllerNamespace)
+	found, err := r.getConfigMap(baseName, controllerNamespace)
 	if err != nil {
 		err = r.Create(context.TODO(), &cm)
 		if err != nil {
@@ -225,7 +223,9 @@ func (r *RateLimitReconciler) getDestinationClusterFromVirtualService(namespace 
 
 	for _, p := range service.Spec.Ports {
 
-		if res, _ := regexp.MatchString(`http`, p.Name); res {
+		regex := regexp.MustCompile(`http`)
+
+		if res := regex.MatchString(p.Name); res {
 			port = p.Port
 		} else {
 			port = 80
@@ -316,7 +316,7 @@ func (r *RateLimitReconciler) addVolumeFromDeployment(volumeProjectedSources []v
 					}
 				}
 				// If the sourcetoApply does not exists in the already mounted sources, append to the slice volumeProjectedSourcesToApply
-				if exists == false {
+				if !exists {
 					volumeProjectedSourcesToApply = append(volumeProjectedSourcesToApply, sourceToApply)
 				}
 			}

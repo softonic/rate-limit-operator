@@ -6,7 +6,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 
-	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
+	clientIstio "istio.io/client-go/pkg/apis/networking/v1alpha3"
 )
 
 func (r *RateLimitReconciler) decomissionk8sObjectResources(baseName string, controllerNamespace string, istioNamespace string) error {
@@ -40,22 +40,7 @@ func (r *RateLimitReconciler) decomissionk8sObjectResources(baseName string, con
 	return nil
 }
 
-/*func (r *RateLimitReconciler) decomissionEnvoyFilters(EnvoyfiltersSlice *[]*istio_v1alpha3.EnvoyFilter) error {
-
-	for _, envoyfilter := range *EnvoyfiltersSlice {
-		salida := *envoyfilter
-		klog.Infof("these is the envoyFilter i am going to decommission: %v with the namespace : %v", salida.Name, salida.Namespace)
-		err := r.deleteEnvoyFilter(envoyfilter)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-
-}*/
-
-func (r *RateLimitReconciler) deleteEnvoyFilter(envoyFilter *istio_v1alpha3.EnvoyFilter) error {
+func (r *RateLimitReconciler) deleteEnvoyFilter(envoyFilter *clientIstio.EnvoyFilter) error {
 
 	err := r.Delete(context.TODO(), envoyFilter)
 	if err != nil {
@@ -137,10 +122,12 @@ func (r *RateLimitReconciler) removeVolumeFromDeployment(sources []v1.VolumeProj
 				}
 			}
 			v.VolumeSource.Projected.Sources = v.VolumeSource.Projected.Sources[:i]
-		} else if v.Name == "commonconfig-volume" && len(v.VolumeSource.Projected.Sources) == 1 {
-			//	r.DeploymentRL.Spec.Template.Spec.Volumes = nil
-			//	r.DeploymentRL.Spec.Template.Spec.Containers[0].VolumeMounts = nil
 		}
+		//else if v.Name == "commonconfig-volume" && len(v.VolumeSource.Projected.Sources) == 1 {
+		//	r.DeploymentRL.Spec.Template.Spec.Volumes = nil
+		//	r.DeploymentRL.Spec.Template.Spec.Containers[0].VolumeMounts = nil
+
+		//}
 	}
 
 	return nil

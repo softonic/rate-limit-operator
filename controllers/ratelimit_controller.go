@@ -29,16 +29,17 @@ import (
 
 	_ "log"
 
-	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	clientIstio "istio.io/client-go/pkg/apis/networking/v1alpha3"
+
 	"k8s.io/klog"
-	// "fmt"
 )
 
 // RateLimitReconciler reconciles a RateLimit object
@@ -51,7 +52,7 @@ type RateLimitReconciler struct {
 }
 
 type K8sObject struct {
-	EnvoyFilters       []*istio_v1alpha3.EnvoyFilter
+	EnvoyFilters       []*clientIstio.EnvoyFilter
 	DeploymentRL       appsv1.Deployment
 	configMapRateLimit v1.ConfigMap
 }
@@ -67,7 +68,7 @@ type K8sObject struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=*,resources=services,verbs=get;list;watch
 
-func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *RateLimitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("ratelimit", req.NamespacedName)
 
@@ -112,9 +113,9 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		if containsString(rateLimitInstance.GetFinalizers(), finalizer) {
 
-			err = r.decomissionk8sObjectResources(baseName, controllerNamespace, istioNamespace)
+			_ = r.decomissionk8sObjectResources(baseName, controllerNamespace, istioNamespace)
 
-			err = r.decomissionDeploymentVolumes(volumeProjectedSources, volumes, controllerNamespace, deploymentName)
+			_ = r.decomissionDeploymentVolumes(volumeProjectedSources, volumes, controllerNamespace, deploymentName)
 
 			rateLimitInstance.SetFinalizers(remove(rateLimitInstance.GetFinalizers(), finalizer))
 			err = r.Update(context.TODO(), rateLimitInstance)
@@ -126,10 +127,10 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// prepare Envoy Filters and apply the needed changes
-	err = r.prepareUpdateEnvoyFilterObjects(*rateLimitInstance, baseName, controllerNamespace)
+	_ = r.prepareUpdateEnvoyFilterObjects(*rateLimitInstance, baseName, controllerNamespace)
 
 	// Create ConfigMap Ratelimit
-	err = r.CreateOrUpdateConfigMap(rateLimitInstance, controllerNamespace, baseName, deploymentName)
+	_ = r.CreateOrUpdateConfigMap(rateLimitInstance, controllerNamespace, baseName, deploymentName)
 
 	// Update deployment with ConfigMap values
 

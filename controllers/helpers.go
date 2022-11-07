@@ -2,16 +2,19 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
-	"github.com/softonic/rate-limit-operator/api/istio_v1beta1"
+
+	"github.com/softonic/rate-limit-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+
+	networkingIstio "istio.io/api/networking/v1alpha3"
+	clientIstio "istio.io/client-go/pkg/apis/networking/v1alpha3"
 )
 
 func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace string, controllerNamespace string, deploymentName string) error {
@@ -29,95 +32,111 @@ func (r *RateLimitReconciler) getK8sResources(baseName string, istioNamespace st
 	return nil
 }
 
-func getConfigObjectMatch(typeConfigObjectMatch string, operation string, clusterEndpoint string, context string, nameVhost string, route string) istio_v1alpha3.EnvoyConfigObjectMatch {
+func getConfigObjectMatch(typeConfigObjectMatch string, operation networkingIstio.EnvoyFilter_Patch_Operation, clusterEndpoint string, context string, nameVhost string, route string) *networkingIstio.EnvoyFilter_EnvoyConfigObjectMatch {
 
-	Match := istio_v1alpha3.EnvoyConfigObjectMatch{}
+	Match := networkingIstio.EnvoyFilter_EnvoyConfigObjectMatch{}
 
-	vhost := istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{}
+	vhost := networkingIstio.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{}
 
 	if typeConfigObjectMatch == "Listener" {
 
-		Match = istio_v1alpha3.EnvoyConfigObjectMatch{
-			Context: context,
-			Listener: &istio_v1alpha3.ListenerMatch{
-				FilterChain: istio_v1alpha3.ListenerMatch_FilterChainMatch{
-					Filter: istio_v1alpha3.ListenerMatch_FilterMatch{
-						Name: "envoy.filters.network.http_connection_manager",
-						SubFilter: istio_v1alpha3.ListenerMatch_SubFilterMatch{
-							Name: "envoy.filters.http.router",
+		Match = networkingIstio.EnvoyFilter_EnvoyConfigObjectMatch{
+			Context: networkingIstio.EnvoyFilter_SIDECAR_INBOUND,
+			ObjectTypes: &networkingIstio.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+				Listener: &networkingIstio.EnvoyFilter_ListenerMatch{
+					FilterChain: &networkingIstio.EnvoyFilter_ListenerMatch_FilterChainMatch{
+						Filter: &networkingIstio.EnvoyFilter_ListenerMatch_FilterMatch{
+							Name: "envoy.filters.network.http_connection_manager",
+							SubFilter: &networkingIstio.EnvoyFilter_ListenerMatch_SubFilterMatch{
+								Name: "envoy.filters.http.router",
+							},
 						},
 					},
 				},
 			},
 		}
-
 	}
 
 	if typeConfigObjectMatch == "Cluster" {
 
-		Match = istio_v1alpha3.EnvoyConfigObjectMatch{
-			Cluster: &istio_v1alpha3.ClusterMatch{
-				Service: clusterEndpoint,
+		Match = networkingIstio.EnvoyFilter_EnvoyConfigObjectMatch{
+			Context: networkingIstio.EnvoyFilter_GATEWAY,
+			ObjectTypes: &networkingIstio.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+				Cluster: &networkingIstio.EnvoyFilter_ClusterMatch{
+					Service: clusterEndpoint,
+				},
 			},
 		}
 
 	}
 
 	if route != "" {
-		vhost = istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{
-			Route: istio_v1alpha3.RouteConfigurationMatch_RouteMatch{
-				Action: "ANY",
+		vhost = networkingIstio.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+			Route: &networkingIstio.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
+				Action: networkingIstio.EnvoyFilter_RouteConfigurationMatch_RouteMatch_ANY,
 				Name:   route,
 			},
 		}
 	} else {
-		vhost = istio_v1alpha3.RouteConfigurationMatch_VirtualHostMatch{
+		vhost = networkingIstio.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
 			Name: nameVhost,
-			Route: istio_v1alpha3.RouteConfigurationMatch_RouteMatch{
-				Action: "ANY",
+			Route: &networkingIstio.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
+				Action: networkingIstio.EnvoyFilter_RouteConfigurationMatch_RouteMatch_ANY,
 			},
 		}
 	}
 
 	if typeConfigObjectMatch == "RouteConfiguration" {
 
-		Match = istio_v1alpha3.EnvoyConfigObjectMatch{
-			Context: context,
-			RouteConfiguration: &istio_v1alpha3.RouteConfigurationMatch{
-				Vhost: vhost,
+		Match = networkingIstio.EnvoyFilter_EnvoyConfigObjectMatch{
+			Context: networkingIstio.EnvoyFilter_GATEWAY,
+			ObjectTypes: &networkingIstio.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+				RouteConfiguration: &networkingIstio.EnvoyFilter_RouteConfigurationMatch{
+					Vhost: &vhost,
+				},
 			},
 		}
 
 	}
 
-	return Match
+	return &Match
 
 }
 
-func getEnvoyFilterConfigPatches(applyTo string, operation string, rawConfig json.RawMessage, typeConfigObjectMatch string, clusterEndpoint string, context string, nameVhost string, routes []string) []istio_v1alpha3.EnvoyConfigObjectPatch {
+func getEnvoyFilterConfigPatches(applyTo networkingIstio.EnvoyFilter_ApplyTo, operation networkingIstio.EnvoyFilter_Patch_Operation, rawConfig string, typeConfigObjectMatch string, clusterEndpoint string, context string, nameVhost string, routes []string) []*networkingIstio.EnvoyFilter_EnvoyConfigObjectPatch {
 
-	ConfigPatches := []istio_v1alpha3.EnvoyConfigObjectPatch{}
-	element := istio_v1alpha3.EnvoyConfigObjectPatch{}
+	ConfigPatches := []*networkingIstio.EnvoyFilter_EnvoyConfigObjectPatch{}
+	element := networkingIstio.EnvoyFilter_EnvoyConfigObjectPatch{}
+
+	// value, err := g.buildHttpFilterPatchValue()
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// listener, err := g.buildHttpFilterListener()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	if len(routes) > 0 {
 		for _, route := range routes {
-			element = istio_v1alpha3.EnvoyConfigObjectPatch{
+			element = networkingIstio.EnvoyFilter_EnvoyConfigObjectPatch{
 				ApplyTo: applyTo,
-				Patch: istio_v1alpha3.Patch{
+				Patch: &networkingIstio.EnvoyFilter_Patch{
 					Operation: operation,
-					Value:     rawConfig,
+					Value:     utils.ConvertYaml2Struct(rawConfig),
 				},
 				Match: getConfigObjectMatch(typeConfigObjectMatch, operation, clusterEndpoint, context, nameVhost, route),
 			}
-			ConfigPatches = append(ConfigPatches, element)
+			ConfigPatches = append(ConfigPatches, &element)
 		}
 	} else {
-		ConfigPatches = []istio_v1alpha3.EnvoyConfigObjectPatch{
+		ConfigPatches = []*networkingIstio.EnvoyFilter_EnvoyConfigObjectPatch{
 			{
 				ApplyTo: applyTo,
-				Patch: istio_v1alpha3.Patch{
+				Patch: &networkingIstio.EnvoyFilter_Patch{
 					Operation: operation,
-					Value:     rawConfig,
+					Value:     utils.ConvertYaml2Struct(rawConfig),
 				},
 				Match: getConfigObjectMatch(typeConfigObjectMatch, operation, clusterEndpoint, context, nameVhost, ""),
 			},
@@ -128,19 +147,19 @@ func getEnvoyFilterConfigPatches(applyTo string, operation string, rawConfig jso
 
 }
 
-func (e EnvoyFilterObject) composeEnvoyFilter(name string, namespace string) istio_v1alpha3.EnvoyFilter {
+func (e EnvoyFilterObject) composeEnvoyFilter(name string, namespace string) *clientIstio.EnvoyFilter {
 
-	envoyFilterBaseDesired := istio_v1alpha3.EnvoyFilter{
+	envoyFilterBaseDesired := &clientIstio.EnvoyFilter{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "EnvoyFilter",
-			APIVersion: "networking.istio.io/v1alpha3",
+			APIVersion: "networkingIstio.istio.io/v1alpha3",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: istio_v1alpha3.EnvoyFilterSpec{
-			WorkloadSelector: istio_v1alpha3.WorkloadSelector{
+		Spec: networkingIstio.EnvoyFilter{
+			WorkloadSelector: &networkingIstio.WorkloadSelector{
 				Labels: e.Labels,
 			},
 			ConfigPatches: getEnvoyFilterConfigPatches(e.ApplyTo, e.Operation, e.RawConfig, e.TypeConfigObjectMatch, e.ClusterEndpoint, e.Context, e.NameVhost, e.Routes),
@@ -151,7 +170,7 @@ func (e EnvoyFilterObject) composeEnvoyFilter(name string, namespace string) ist
 
 }
 
-func (r *RateLimitReconciler) getEnvoyFilters(baseName string, istioNamespace string) *[]*istio_v1alpha3.EnvoyFilter {
+func (r *RateLimitReconciler) getEnvoyFilters(baseName string, istioNamespace string) *[]*clientIstio.EnvoyFilter {
 
 	// case switch with the type of the filter
 
@@ -167,9 +186,9 @@ func (r *RateLimitReconciler) getEnvoyFilters(baseName string, istioNamespace st
 
 }
 
-func (r *RateLimitReconciler) getEnvoyFilter(name string, namespace string) *istio_v1alpha3.EnvoyFilter {
+func (r *RateLimitReconciler) getEnvoyFilter(name string, namespace string) *clientIstio.EnvoyFilter {
 
-	envoyFilter := istio_v1alpha3.EnvoyFilter{}
+	envoyFilter := clientIstio.EnvoyFilter{}
 
 	err := r.Get(context.TODO(), types.NamespacedName{
 		Namespace: namespace,
@@ -220,9 +239,7 @@ func constructVolumeSources(name string) []v1.VolumeProjection {
 
 func constructVolumes(nameVolume string, nameVolumeSource string) []v1.Volume {
 
-	var defaultMode int32
-
-	defaultMode = 0420
+	var defaultMode int32 = 0420
 
 	p := &defaultMode
 
@@ -266,9 +283,9 @@ func (r *RateLimitReconciler) getDeployment(controllerNamespace string, name str
 	return *deploy, nil
 }
 
-func (r *RateLimitReconciler) getVirtualService(namespace string, name string) (*istio_v1beta1.VirtualService, error) {
+func (r *RateLimitReconciler) getVirtualService(namespace string, name string) (*clientIstio.VirtualService, error) {
 
-	virtualService := &istio_v1beta1.VirtualService{}
+	virtualService := &clientIstio.VirtualService{}
 	err := r.Get(context.TODO(), types.NamespacedName{
 		Namespace: namespace,
 		Name:      name,
@@ -281,9 +298,9 @@ func (r *RateLimitReconciler) getVirtualService(namespace string, name string) (
 
 }
 
-func (r *RateLimitReconciler) getGateway(namespace string, name string) (*istio_v1beta1.Gateway, error) {
+func (r *RateLimitReconciler) getGateway(namespace string, name string) (*clientIstio.Gateway, error) {
 
-	Gateway := &istio_v1beta1.Gateway{}
+	Gateway := &clientIstio.Gateway{}
 	err := r.Get(context.TODO(), types.NamespacedName{
 		Namespace: namespace,
 		Name:      name,

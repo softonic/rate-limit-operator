@@ -2,21 +2,25 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
-	"github.com/softonic/rate-limit-operator/api/istio_v1alpha3"
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
+	//yaml "gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 	"k8s.io/klog"
 
-	// "os"
+	ratelimitTypes "github.com/softonic/rate-limit-operator/pkg/ratelimit/types"
+	networkingIstio "istio.io/api/networking/v1alpha3"
+	clientIstio "istio.io/client-go/pkg/apis/networking/v1alpha3"
+
 	"strings"
 )
 
 type EnvoyFilterObject struct {
-	ApplyTo               string
-	Operation             string
-	RawConfig             json.RawMessage
+	ApplyTo   networkingIstio.EnvoyFilter_ApplyTo
+	Operation networkingIstio.EnvoyFilter_Patch_Operation
+	RawConfig string
+	//RawConfig             json.RawMessage
 	TypeConfigObjectMatch string
 	ClusterEndpoint       string
 	Context               string
@@ -61,18 +65,23 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	nameCluster := "rate_limit_service_" + baseName
 
-	payload := []byte(fmt.Sprintf(`{"connect_timeout":"1.25s","load_assignment":{"cluster_name":"%s","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"%s","port_value":8081}}}}]}]},"http2_protocol_options":{},"lb_policy":"ROUND_ROBIN","name":"%s","type":"STRICT_DNS"}`, fqdn, fqdn, nameCluster))
+	value, err := createClusterPatchValue(fqdn, nameCluster)
+	if err != nil {
+		return err
+	}
 
-	rawConfigCluster := json.RawMessage(payload)
+	//payload := []byte(fmt.Sprintf(`{"connect_timeout":"1.25s","load_assignment":{"cluster_name":"%s","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"%s","port_value":8081}}}}]}]},"http2_protocol_options":{},"lb_policy":"ROUND_ROBIN","name":"%s","type":"STRICT_DNS"}`, fqdn, fqdn, nameCluster))
 
-	labels := make(map[string]string)
+	//rawConfigCluster := json.RawMessage(payload)
 
-	labels = gatewaySelector
+	//rawConfigCluster := string(payload)
+
+	labels := gatewaySelector
 
 	envoyFilterObjectCluster := EnvoyFilterObject{
-		Operation:             "ADD",
-		ApplyTo:               "CLUSTER",
-		RawConfig:             rawConfigCluster,
+		Operation:             networkingIstio.EnvoyFilter_Patch_ADD,
+		ApplyTo:               networkingIstio.EnvoyFilter_CLUSTER,
+		RawConfig:             value,
 		TypeConfigObjectMatch: "Cluster",
 		ClusterEndpoint:       fqdn,
 		Labels:                labels,
@@ -80,7 +89,7 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	envoyFilterClusterDesired := envoyFilterObjectCluster.composeEnvoyFilter(baseName+"-cluster", istioNamespace)
 
-	envoyFilterCluster := &istio_v1alpha3.EnvoyFilter{}
+	envoyFilterCluster := &clientIstio.EnvoyFilter{}
 
 	err = r.applyEnvoyFilter(envoyFilterClusterDesired, envoyFilterCluster, baseName+"-cluster", istioNamespace)
 	if err != nil {
@@ -90,14 +99,19 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	domain := baseName
 
-	payload = []byte(fmt.Sprintf(`{"typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit","domain":"%s","rate_limit_service":{"transport_api_version": "V3","grpc_service":{"envoy_grpc":{"cluster_name":"%s"},"timeout":"1.25s"}}},"name":"envoy.filters.http.ratelimit"}`, domain, nameCluster))
+	value, err = createHttpFilterPatchValue(domain, nameCluster)
+	if err != nil {
+		return err
+	}
 
-	rawConfigHTTPFilter := json.RawMessage(payload)
+	//payload = []byte(fmt.Sprintf(`{"typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit","domain":"%s","rate_limit_service":{"transport_api_version": "V3","grpc_service":{"envoy_grpc":{"cluster_name":"%s"},"timeout":"1.25s"}}},"name":"envoy.filters.http.ratelimit"}`, domain, nameCluster))
+
+	//rawConfigHTTPFilter := string(payload)
 
 	envoyFilterObjectListener := EnvoyFilterObject{
-		Operation:             "INSERT_BEFORE",
-		ApplyTo:               "HTTP_FILTER",
-		RawConfig:             rawConfigHTTPFilter,
+		Operation:             networkingIstio.EnvoyFilter_Patch_INSERT_BEFORE,
+		ApplyTo:               networkingIstio.EnvoyFilter_HTTP_FILTER,
+		RawConfig:             value,
 		TypeConfigObjectMatch: "Listener",
 		Context:               "GATEWAY",
 		Labels:                labels,
@@ -105,7 +119,7 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	envoyFilterHTTPFilterDesired := envoyFilterObjectListener.composeEnvoyFilter(baseName+"-envoy-filter", istioNamespace)
 
-	envoyFilterHTTPFilter := &istio_v1alpha3.EnvoyFilter{}
+	envoyFilterHTTPFilter := &clientIstio.EnvoyFilter{}
 
 	err = r.applyEnvoyFilter(envoyFilterHTTPFilterDesired, envoyFilterHTTPFilter, baseName+"-envoy-filter", istioNamespace)
 	if err != nil {
@@ -118,7 +132,8 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	intermediateJson := append(initJson, jsonActions...)
 
-	rawConfigHTTPRoute := json.RawMessage(append(intermediateJson, finalJson...))
+	rawConfigHTTPRoute := string(append(intermediateJson, finalJson...))
+	//rawConfigHTTPRoute := json.RawMessage(append(intermediateJson, finalJson...))
 
 	//rawConfigHTTPRoute := json.RawMessage(`{"route":{"rate_limits":[{"actions":[{"request_headers":{"descriptor_key":"remote_address","header_name":"x-custom-user-ip"}},{"destination_cluster":{}}]}]}}`)
 
@@ -129,8 +144,8 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 	}
 
 	envoyFilterObjectRouteConfiguration := EnvoyFilterObject{
-		Operation:             "MERGE",
-		ApplyTo:               "HTTP_ROUTE",
+		Operation:             networkingIstio.EnvoyFilter_Patch_MERGE,
+		ApplyTo:               networkingIstio.EnvoyFilter_HTTP_ROUTE,
 		RawConfig:             rawConfigHTTPRoute,
 		TypeConfigObjectMatch: "RouteConfiguration",
 		Context:               "GATEWAY",
@@ -141,7 +156,7 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 
 	envoyFilterHTTPRouteDesired := envoyFilterObjectRouteConfiguration.composeEnvoyFilter(baseName+"-route", istioNamespace)
 
-	envoyFilterHTTPRoute := &istio_v1alpha3.EnvoyFilter{}
+	envoyFilterHTTPRoute := &clientIstio.EnvoyFilter{}
 
 	err = r.applyEnvoyFilter(envoyFilterHTTPRouteDesired, envoyFilterHTTPRoute, baseName+"-route", istioNamespace)
 	if err != nil {
@@ -167,7 +182,7 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 
 	actionsOutput.RateLimits = make([]networkingv1alpha1.RateLimits, len(rateLimitInstance.Spec.Rate))
 
-	actions := make([]networkingv1alpha1.Actions, len(rateLimitInstance.Spec.Rate))
+	//actions := make([]networkingv1alpha1.Actions, len(rateLimitInstance.Spec.Rate))
 
 	//dimensionarray := make([]networkingv1alpha1.Dimensions, len(rateLimitInstance.Spec.Rate))
 
@@ -176,7 +191,7 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 		keyName := dimension.Dimensions[0].RequestHeader.DescriptorKey + "_" + dimension.Unit
 
 		if dimension.Dimensions[0].RequestHeader.DescriptorKey == "" {
-			actions = []networkingv1alpha1.Actions{
+			actions := []networkingv1alpha1.Actions{
 				{
 					HeaderValueMatch: &networkingv1alpha1.HeaderValueMatch{
 						DescriptorValue: dimension.Dimensions[len(dimension.Dimensions)-1].HeaderValueMatch.DescriptorValue,
@@ -195,7 +210,7 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 			actionsOutput.RateLimits[k].Actions = actions
 
 		} else {
-			actions = []networkingv1alpha1.Actions{
+			actions := []networkingv1alpha1.Actions{
 
 				{
 					RequestHeaders: &networkingv1alpha1.RequestHeaders{
@@ -221,4 +236,70 @@ func retrieveJsonActions(rateLimitInstance networkingv1alpha1.RateLimit, baseNam
 
 	return output
 
+}
+
+func createHttpFilterPatchValue(domain string, nameCluster string) (string, error) {
+	//97:	payload = []byte(fmt.Sprintf(`{"typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit","domain":"%s","rate_limit_service":{"transport_api_version": "V3","grpc_service":{"envoy_grpc":{"cluster_name":"%s"},"timeout":"1.25s"}}},"name":"envoy.filters.http.ratelimit"}`, domain, nameCluster))
+
+	values := ratelimitTypes.HttpFilterPatchValues{
+		Name: "envoy.filters.http.ratelimit",
+		TypedConfig: ratelimitTypes.TypedConfig{
+			Type:   "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit",
+			Domain: domain,
+			RateLimitService: ratelimitTypes.RateLimitService{
+				TransportAPIVersion: "V3",
+				GRPCService: ratelimitTypes.GRPCService{
+					Timeout: "1.25s",
+					EnvoyGRPC: ratelimitTypes.EnvoyGRPC{
+						ClusterName: nameCluster,
+					},
+				},
+			},
+		},
+	}
+
+	bytes, err := yaml.Marshal(&values)
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes), nil
+}
+
+func createClusterPatchValue(fqdn string, nameCluster string) (string, error) {
+	//	payload := []byte(fmt.Sprintf(`{"connect_timeout":"1.25s","load_assignment":{"cluster_name":"%s","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"%s","port_value":8081}}}}]}]},"http2_protocol_options":{},"lb_policy":"ROUND_ROBIN","name":"%s","type":"STRICT_DNS"}`, fqdn, fqdn, nameCluster))
+
+	values := ratelimitTypes.ClusterPatchValues{
+		Name:                 nameCluster,
+		Type:                 "STRICT_DNS",
+		ConnectTimeout:       "1.25s",
+		HTTP2ProtocolOptions: ratelimitTypes.HTTP2ProtocolOptions{},
+		LbPolicy:             "ROUND_ROBIN",
+		LoadAssignment: ratelimitTypes.LoadAssignment{
+			ClusterName: fqdn,
+			Endpoints: []ratelimitTypes.Endpoints{
+				{
+					LbEndpoints: []ratelimitTypes.LbEndpoints{
+						{
+							Endpoint: ratelimitTypes.Endpoint{
+								Address: ratelimitTypes.Address{
+									SocketAddress: ratelimitTypes.SocketAddress{
+										Address:   fqdn,
+										PortValue: 8081,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	bytes, err := yaml.Marshal(&values)
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes), nil
 }

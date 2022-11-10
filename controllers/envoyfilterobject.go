@@ -10,15 +10,15 @@ import (
 	"k8s.io/klog"
 
 	ratelimitTypes "github.com/softonic/rate-limit-operator/pkg/ratelimit/types"
-	networkingIstio "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1alpha3"
 	clientIstio "istio.io/client-go/pkg/apis/networking/v1alpha3"
 
 	"strings"
 )
 
 type EnvoyFilterObject struct {
-	ApplyTo   networkingIstio.EnvoyFilter_ApplyTo
-	Operation networkingIstio.EnvoyFilter_Patch_Operation
+	ApplyTo   networking.EnvoyFilter_ApplyTo
+	Operation networking.EnvoyFilter_Patch_Operation
 	RawConfig string
 	//RawConfig             json.RawMessage
 	TypeConfigObjectMatch string
@@ -79,8 +79,8 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 	labels := gatewaySelector
 
 	envoyFilterObjectCluster := EnvoyFilterObject{
-		Operation:             networkingIstio.EnvoyFilter_Patch_ADD,
-		ApplyTo:               networkingIstio.EnvoyFilter_CLUSTER,
+		Operation:             networking.EnvoyFilter_Patch_ADD,
+		ApplyTo:               networking.EnvoyFilter_CLUSTER,
 		RawConfig:             value,
 		TypeConfigObjectMatch: "Cluster",
 		ClusterEndpoint:       fqdn,
@@ -109,8 +109,8 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 	//rawConfigHTTPFilter := string(payload)
 
 	envoyFilterObjectListener := EnvoyFilterObject{
-		Operation:             networkingIstio.EnvoyFilter_Patch_INSERT_BEFORE,
-		ApplyTo:               networkingIstio.EnvoyFilter_HTTP_FILTER,
+		Operation:             networking.EnvoyFilter_Patch_INSERT_BEFORE,
+		ApplyTo:               networking.EnvoyFilter_HTTP_FILTER,
 		RawConfig:             value,
 		TypeConfigObjectMatch: "Listener",
 		Context:               "GATEWAY",
@@ -144,8 +144,8 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 	}
 
 	envoyFilterObjectRouteConfiguration := EnvoyFilterObject{
-		Operation:             networkingIstio.EnvoyFilter_Patch_MERGE,
-		ApplyTo:               networkingIstio.EnvoyFilter_HTTP_ROUTE,
+		Operation:             networking.EnvoyFilter_Patch_MERGE,
+		ApplyTo:               networking.EnvoyFilter_HTTP_ROUTE,
 		RawConfig:             rawConfigHTTPRoute,
 		TypeConfigObjectMatch: "RouteConfiguration",
 		Context:               "GATEWAY",

@@ -40,6 +40,7 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = networkingv1alpha1.AddToScheme(scheme)
+        _ = clientnetworking.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 
 }

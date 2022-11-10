@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	networkingv1alpha1 "github.com/softonic/rate-limit-operator/api/v1alpha1"
+        clientIstio "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"github.com/softonic/rate-limit-operator/controllers"
 	// +kubebuilder:scaffold:imports
 )
@@ -40,7 +41,7 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = networkingv1alpha1.AddToScheme(scheme)
-        _ = clientnetworking.AddToScheme(scheme)
+        _ = clientIstio.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 
 }

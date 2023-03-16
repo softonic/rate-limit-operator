@@ -127,6 +127,10 @@ func (r *RateLimitReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// prepare Envoy Filters and apply the needed changes
 	err = r.prepareUpdateEnvoyFilterObjects(*rateLimitInstance, baseName, controllerNamespace)
+	if err != nil {
+		klog.Infof("Virtualservice does not exists. Returning the object without managing it. Error: %v", err)
+		return ctrl.Result{}, err
+	}
 
 	// Create ConfigMap Ratelimit
 	err = r.CreateOrUpdateConfigMap(rateLimitInstance, controllerNamespace, baseName, deploymentName)

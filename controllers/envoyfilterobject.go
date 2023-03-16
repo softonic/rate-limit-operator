@@ -37,6 +37,7 @@ func (r *RateLimitReconciler) prepareUpdateEnvoyFilterObjects(rateLimitInstance 
 	virtualService, err := r.getVirtualService(namespace, nameVirtualService)
 	if err != nil {
 		klog.Infof("Virtualservice does not exists. Error: %v", err)
+		return err
 	}
 
 	gatewayIngress := strings.Split(virtualService.Spec.Gateways[0], "/")

@@ -39,3 +39,5 @@ resources: {}
 podLabels:
   service: istio
   site: global
+kubeRbacProxy:
+  resources: {}

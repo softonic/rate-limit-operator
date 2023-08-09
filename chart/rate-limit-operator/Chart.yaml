@@ -1,6 +1,6 @@
 apiVersion: v2
 name: rate-limit-operator
-description: 
+description: "Rate Limit operator for Envoy Proxy"
 type: application
-version: 1.1.0-2
+version: 1.1.0-3
 appVersion: 1.1.0
